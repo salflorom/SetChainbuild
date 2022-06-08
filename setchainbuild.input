@@ -1,0 +1,57 @@
+# Simulation parameters
+EquilibrationSets 5000
+ProductionSets 10000
+StepsPerSet 100000
+PrintEveryNSets 5000
+Ensemble nvt #nvt, gce
+
+# State Variables. Volume is defined in Solid-Fluid Parameters or in U_sfFile.
+ExternalTemperature 303.15 #K
+#ExternalPressure 20000 #Pa
+NumberOfMolecules 100
+#UseIdealChemicalPotential yes
+	## You can use CoolProp to get the reference values of the fluid in the bulk phase.
+	#ReferencePressure 20000 #Pa
+	#ReferenceDensity 7.937380486896885 #mol/m^3
+
+# Fluid-Fluid Parameters
+MoleculeName ch4
+Sigma_ff 0.398 #nm
+Sigma2_ff 0.4467 #nm. For squarewell potential.
+#Rcut_ff 40 #nm
+Epsilon_ff 148 #K
+MolarMass 16.04 #g/mol
+U_ff SquareWell #lj (Lennard Jones), SquareWell. Intermolecular potential.
+
+# Solid-Fluid Parameters
+# /*Comment. Start*/
+# Geometry: 
+# 	1 Spherical. For U=U(r)
+# 	2 Spherical. For U=U(r,theta)
+# 	3 Bulk. With PBC (bulk), doesn't need a .sol file
+# 	3 Space. Without PBC (space), doesn't need a .sol file
+# 	3 Box. With inf potentials as walls (box), doesn't need a .sol file
+# 	3 Slit. For U=U(x,y,z)
+# 	5 Cylindrical. For U=U(z,rho)
+# 	6 Cylindrical. For U=U(r)
+# /*Comment. End*/
+Geometry 3 Bulk
+PoreSize 5 #nm. d_ext or box-length (It's necessary, even for bulk phases)
+#N_s 38.19 #nm^-2
+#Epsilon_sf 1 #K
+#Sigma_sf 1 #nm
+#Rcut_sf 1 #nm
+#Sigma2_sf 1 #nm
+
+# Files containing the potentials
+#U_sfFile squarewell.py #K. File that contains the solid-fluid potential function, where r is the radius.
+#Mu testMu.py #K. File that contains the chemical potential function, where r is the radius.
+
+# SBATCH parameters
+StdOut chain.out
+StdErr chain.err
+RunSbatch yes
+	Email saf5@njit.edu
+	EmailType all
+	JobName chainbuild
+#EOF
