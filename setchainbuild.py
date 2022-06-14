@@ -67,8 +67,8 @@ class System():
               '\t\t\tSigma2_sf [value] (in nm)\n'
               '\t\t\tRcut_sf [value] (in nm)\n'
               '\t\t# Files containing the potentials:\n'
-              '\t\t\tU_sfFile [file name] (python script). Include the extension.\n'
-              '\t\t\tMuFile [file name] (python script). Include the extension.\n'
+              '\t\t\tU_sfFile [file name] (python script). Include the extension, and use only lower case for the file name.\n'
+              '\t\t\tMuFile [file name] (python script). Include the extension, and use only lower case.\n'
               '\t\t# Bash Parameters:\n'
               '\t\t\tStdOut [file name]\n'
               '\t\t\tStdErr [file name]\n'
@@ -89,18 +89,21 @@ class System():
               '\t    \t3 Slit. For U=U(x,y,z)\n'
               '\t    \t5 Cylindrical. For U=U(z,rho)\n'
               '\t    \t6 Cylindrical. For U=U(r)\n'
-              '\t3.- The U_sf file must contain a function called Usf=Usf(x,n_s,eps_ff,eps_sf,sigma_ff,sigma_sf,rcut_ff,rcut_sf),\n'
+              '\t3.- The U_sf file must contain a function called Usf=Usf(x,params),\n'
               '\t    where x is a numpy vector of positions: r, (r,theta), (x,y,z), (r,rho). Also rcut could be sigma2 (depending \n'
-              '\t    on the potential).\n'
+              '\t    on the potential), and params is a dictionary with all the fluid-fluid and solid-fluid parameters given by the user.\n'
               '\t    This file doesn\'t need to be created if Geometry specifies bulk, space or box in its second argument.\n'
+              '\t    Example of a calling to a parameter in the dictionary: epsilon_ff = param[\'epsilon_ff[K]\']. Also you can see the'
+              '\t    whole dictionary by printing it.\n'
               '\t4.- The Mu file must contain a function called Mu=Mu(P,T), where P is a numpy array of pressures.\n'
               '\t    This file doesn\'t need to be created if UseIdealChemicalPotential is set as Yes. In that case, the program\n'
               '\t    itself will calculate the chemical potentials (reference pressure and density are needed).\n'
               '\t5.- Chainbuild also calculates chemical potentials by using Widom Insertion. It\'s automatically activated when \n'
-              '\t    defining the nvt ensemble.\n'
+              '\t    defining the NVT ensemble.\n'
               '\t6.- You cannot define sigma2 and rcut at the same time (either for fluid-fluid or solid-fluid interactions).\n'
-              '\t7.- The parameters Email, EmailType and JobName don\'t need to be defined if RunSbatch is set to No or is not defined.\n'
-              '\t7.- For any comment in the input file, use #.\n')
+              '\t7.- The quantities expressed in reduced units are quantities divided by epsilon_ff[K] or sigma_ff[nm]\n'
+              '\t8.- The parameters Email, EmailType and JobName don\'t need to be defined if RunSbatch is set to No or is not defined.\n'
+              '\t9.- For any comment in the input file, use #.\n')
         sys.exit(0)
 
     def ReadFileOfInputParameters(self):
@@ -302,9 +305,10 @@ class System():
                 # Calculating Usf. Generally, a Usf potential depends on n_s, epsilon (solid or fluid),
                 #   sigma (solid or fluid), and rcut (solid or fluid). Therefore, it's mandatory to add these variables,
                 #   even if they weren't going to be used.
+                params = {**self.fluidParameters, **self.poreParameters, **self.stateVariables}
                 if (geom[0] == 1 or geom[0] == 6): 
-                    radius = np.linspace(0,poreSizes[i],nUsfPoints)
-                    potential = usfFile.Usf(radius,n_s,eps_ff,eps_sf,sigma_ff,sigma_sf,rcut_ff,rcut_sf) #K
+                    radius = np.linspace(0,poreSizes[i]*0.5,nUsfPoints) #nm
+                    potential = usfFile.Usf(radius,params) #K
                     usfPoints = np.vstack((radius,potential)).T
                     header += f'# r(nm)\tU/eps_FF'
                 # In progress ...
@@ -312,13 +316,13 @@ class System():
                     # radius = np.linspace(0,poreSizes[i],nUsfPoints)
                     # theta = np.linspace(0,2*np.pi,nUsfPoints)
                     # x = np.vstack((radius,theta)).T
-                    # potential = usfFile.Usf(x,n_s,eps_ff,eps_sf,sigma_ff,sigma_sf,rcut_ff,rcut_sf) #K
+                    # potential = usfFile.Usf(x,params) #K
                     # header += '# r(nm)\ttheta(°)\tU/eps_FF'
                 # if (geom[0] == 3): 
-                    # potential = usfFile.Usf(x,n_s,eps_ff,eps_sf,sigma_ff,sigma_sf,rcut_ff,rcut_sf) #K
+                    # potential = usfFile.Usf(x,y,z,params) #K
                 # header += '# x(nm)\ty(nm)\tz(nm)\tU/eps_FF'
                 # if (geom[0] == 5): 
-                    # potential = usfFile.Usf(z,rho,n_s,eps_ff,eps_sf,sigma_ff,sigma_sf,rcut_ff,rcut_sf) #K
+                    # potential = usfFile.Usf(z,rho,params) #K
                     # header += '# z(nm)\trho(nm)\tU/eps_FF'
                 potential /= eps_ff
                 np.savetxt(f'{poreSizes[i]}nm/{molName}.sol',usfPoints,delimiter=' ',header=header,footer='# EOF',comments='')
@@ -375,31 +379,27 @@ class System():
             self.ReadChemicalPotential()
             firstVariable = self.stateVariables['chemicalpotential']
         # Writing input file.
-        for var in firstVariable:
-            fileContent1stPart = f'name {molName}_{var}\n'\
-                                 f'job {equilSets} {prodSets} {stepsPerSet} {printEvery}\n'\
-                                 f'ens {ensemble} {var} {temperature}\n'\
-                                 f'record energy\n'\
-                                 f'model {molName}.mol\n'\
-                                 f'summary {molName}_{var}.sum\n'\
-            for i in range(len(poreSizes)):
-                fileContent3rdPart = ''
+        for i in range(len(poreSizes)):
+            for var in firstVariable:
+                fileContent = f'name {molName}_{var}\n'\
+                              f'job {equilSets} {prodSets} {stepsPerSet} {printEvery}\n'\
+                              f'ens {ensemble} {var} {temperature}\n'\
+                              f'record energy\n'\
+                              f'model {molName}.mol\n'\
+                              f'summary {molName}_{var}.sum\n'
                 if (geom == 'bulk' or geom == 'space' or geom == 'box'): 
-                    fileContent2ndPart = f'solid {geom} {reducedPoreSizes[i]}\n'
-                else: 
-                    solidFile = self.scriptParameters['solidfile']
-                    fileContent2ndPart = f'solid {solidFile}\n'
-                fileContent2ndPart += 'track 3 3\n'\
-                                      'run\n'
+                        fileContent += f'solid {geom} {reducedPoreSizes[i]}\n'
+                else: fileContent += f'solid {molName}.sol\n'
+                fileContent += 'track 3 3\n'\
+                               'run\n'
                 outFileName = f'{poreSizes[i]}nm/{molName}_{var}.inp'
-                with open(outFileName,'w') as outFile: outFile.write(fileContent1stPart+fileContent2ndPart+fileContent3rdPart)
+                with open(outFileName,'w') as outFile: outFile.write(fileContent)
 
     def WriteSubmitFile(self):
         ensemble = self.programParameters['ensemble']
         runsbatch = self.scriptParameters['runsbatch']
         output = self.scriptParameters['stdout']
         outerr = self.scriptParameters['stderr']
-        nMols = self.stateVariables['numberofmolecules']
         poreSizes = self.poreParameters['poresize[nm]']
         molName = self.fluidParameters['moleculename']
         firstVariable = []
