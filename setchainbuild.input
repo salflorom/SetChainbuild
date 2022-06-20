@@ -3,16 +3,13 @@ EquilibrationSets 5000
 ProductionSets 10000
 StepsPerSet 100000
 PrintEveryNSets 5000
-Ensemble nvt #nvt, gce
+Ensemble gce #nvt, gce
 
 # State Variables. Volume is defined in Solid-Fluid Parameters or in U_sfFile.
 ExternalTemperature 303.15 #K
-#ExternalPressure 20000 #Pa
-NumberOfMolecules 100
-#UseIdealChemicalPotential yes
-	## You can use CoolProp to get the reference values of the fluid in the bulk phase.
-	#ReferencePressure 20000 #Pa
-	#ReferenceDensity 7.937380486896885 #mol/m^3
+ExternalPressure 20000 40000 60000 #Pa
+#NumberOfMolecules 100
+FugacityCoefficient 1
 
 # Fluid-Fluid Parameters
 MoleculeName ch4

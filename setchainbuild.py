@@ -47,9 +47,7 @@ class System():
               '\t\t\tExternalTemperature [value] (in K)\n'
               '\t\t\tExternalPressure [list of values separated by spaces] (in Pa)\n'
               '\t\t\tNumberOfMolecules [list of values separated by spaces]\n'
-              '\t\t\tUseIdealChemicalPotential [Yes|No]\n'
-              '\t\t\t\tReferencePressure [value] (in Pa)\n'
-              '\t\t\t\tReferenceDensity [value] (in mol/m^3)\n'
+              '\t\t\tFugacityCoefficient [value or list of values separated by spaces]\n'
               '\t\t# Fluid-Fluid Interaction Parameters:\n'
               '\t\t\tMoleculeName [name]\n'
               '\t\t\tSigma_ff [value] (in nm)\n'
@@ -67,8 +65,9 @@ class System():
               '\t\t\tSigma2_sf [value] (in nm)\n'
               '\t\t\tRcut_sf [value] (in nm)\n'
               '\t\t# Files containing the potentials:\n'
-              '\t\t\tU_sfFile [file name] (python script). Include the extension, and use only lower case for the file name.\n'
-              '\t\t\tMuFile [file name] (python script). Include the extension, and use only lower case.\n'
+              '\t\t\tUsfFile [file name] (python script). Include the extension, and use only lower case for the file name.\n'
+              '\t\t\tPhiFile [file name] (python script). Include the extension, and use only lower case for the file name.\n'
+              '\t\t\tMuFile [file name] (python script). Include the extension, and use only lower case for the file name.\n'
               '\t\t# Bash Parameters:\n'
               '\t\t\tStdOut [file name]\n'
               '\t\t\tStdErr [file name]\n'
@@ -79,31 +78,34 @@ class System():
               '\t\t\t\tJobName [name]\n'
               '\n'
               'Notes:\n'
-              '\t1.- The input file contains the parameters to set the simulations.\n'
-              '\t2.- Valid pairs of geometries:\n'
-              '\t    \t1 Spherical. For U=U(r)\n'
-              '\t    \t2 Spherical. For U=U(r,theta)\n'
-              '\t    \t3 Bulk. With PBC, doesn\'t need a U_sf file\n'
-              '\t    \t3 Space. Without PBC, doesn\'t need a U_sf file\n'
-              '\t    \t3 Box. With inf potentials as walls, doesn\'t need a U_sf file\n'
-              '\t    \t3 Slit. For U=U(x,y,z)\n'
-              '\t    \t5 Cylindrical. For U=U(z,rho)\n'
-              '\t    \t6 Cylindrical. For U=U(r)\n'
-              '\t3.- The U_sf file must contain a function called Usf=Usf(x,params),\n'
-              '\t    where x is a numpy vector of positions: r, (r,theta), (x,y,z), (r,rho). Also rcut could be sigma2 (depending \n'
-              '\t    on the potential), and params is a dictionary with all the fluid-fluid and solid-fluid parameters given by the user.\n'
-              '\t    This file doesn\'t need to be created if Geometry specifies bulk, space or box in its second argument.\n'
-              '\t    Example of a calling to a parameter in the dictionary: epsilon_ff = param[\'epsilon_ff[K]\']. Also you can see the'
-              '\t    whole dictionary by printing it.\n'
-              '\t4.- The Mu file must contain a function called Mu=Mu(P,T), where P is a numpy array of pressures.\n'
-              '\t    This file doesn\'t need to be created if UseIdealChemicalPotential is set as Yes. In that case, the program\n'
-              '\t    itself will calculate the chemical potentials (reference pressure and density are needed).\n'
-              '\t5.- Chainbuild also calculates chemical potentials by using Widom Insertion. It\'s automatically activated when \n'
-              '\t    defining the NVT ensemble.\n'
-              '\t6.- You cannot define sigma2 and rcut at the same time (either for fluid-fluid or solid-fluid interactions).\n'
-              '\t7.- The quantities expressed in reduced units are quantities divided by epsilon_ff[K] or sigma_ff[nm]\n'
-              '\t8.- The parameters Email, EmailType and JobName don\'t need to be defined if RunSbatch is set to No or is not defined.\n'
-              '\t9.- For any comment in the input file, use #.\n')
+              '\t1.-  The input file contains the parameters to set the simulations.\n'
+              '\t2.-  Valid pairs of geometries:\n'
+              '\t     \t1 Spherical. For U=U(r)\n'
+              '\t     \t2 Spherical. For U=U(r,theta)\n'
+              '\t     \t3 Bulk. With PBC, doesn\'t need a U_sf file\n'
+              '\t     \t3 Space. Without PBC, doesn\'t need a U_sf file\n'
+              '\t     \t3 Box. With inf potentials as walls, doesn\'t need a U_sf file\n'
+              '\t     \t3 Slit. For U=U(x,y,z)\n'
+              '\t     \t5 Cylindrical. For U=U(z,rho)\n'
+              '\t     \t6 Cylindrical. For U=U(r)\n'
+              '\t3.-  The U_sf file must contain a function called Usf=Usf(x,params),\n'
+              '\t     where x is a numpy vector of positions: r, (r,theta), (x,y,z), (r,rho). Also rcut could be sigma2 (depending \n'
+              '\t     on the potential), and params is a dictionary with all the fluid-fluid and solid-fluid parameters given by the user.\n'
+              '\t     This file doesn\'t need to be created if Geometry specifies bulk, space or box in its second argument.\n'
+              '\t     Example of a calling to a parameter in the dictionary: epsilon_ff = param[\'epsilon_ff[K]\']. Also you can see the'
+              '\t     whole dictionary by printing it.\n'
+              '\t4.-  The Phi file must contain a function called Phi=Phi(P,params), where P is a numpy array of pressures.\n'
+              '\t     This file doesn\'t need to be created if fugacityCoefficient or a mu file is given. In that case, the program\n'
+              '\t     itself will calculate the chemical potentials.\n'
+              '\t5.-  The Mu file must contain a function called Mu=Mu(P,params), where P is a numpy array of pressures.\n'
+              '\t     This file doesn\'t need to be created if FugacityCoefficient or a phi file is given. In that case, the program\n'
+              '\t     itself will calculate the chemical potentials.\n'
+              '\t6.-  Chainbuild also calculates chemical potentials by using Widom Insertion. It\'s automatically activated when \n'
+              '\t     defining the NVT ensemble.\n'
+              '\t7.-  You cannot define sigma2 and rcut at the same time (either for fluid-fluid or solid-fluid interactions).\n'
+              '\t8.-  The quantities expressed in reduced units are quantities divided by epsilon_ff[K] or sigma_ff[nm]\n'
+              '\t9.-  The parameters Email, EmailType and JobName don\'t need to be defined if RunSbatch is set to No or is not defined.\n'
+              '\t10.- For any comment in the input file, use #.\n')
         sys.exit(0)
 
     def ReadFileOfInputParameters(self):
@@ -126,9 +128,7 @@ class System():
                 elif command == 'numberofmolecules': 
                     self.stateVariables[command] = np.array(list(map(int,value.split()))) #For several numbers of molecules.
                 elif command == 'externaltemperature': self.stateVariables[command+'[K]'] = float(value)
-                elif command == 'useidealchemicalpotential': self.stateVariables[command] = value #yes|no.
-                elif command == 'referencedensity': self.stateVariables[command+'[mol/m^3]'] = float(value) #mol/m^3
-                elif command == 'referencepressure': self.stateVariables[command+'[Pa]'] = float(value) #Pa
+                elif command == 'fugacitycoefficient': self.stateVariables[command] = np.array(list(map(float,params.group(2).split()))) # For several values 
                 # Fluid-Fluid parameters
                 elif command == 'moleculename': self.fluidParameters[command] = value #Arbitrary
                 elif command == 'sigma_ff': self.fluidParameters[command+'[nm]'] = float(value) #nm
@@ -149,8 +149,9 @@ class System():
                     self.poreParameters[command] = value.split()
                     self.poreParameters[command][0] = int(self.poreParameters[command][0])
                 # Files to read
-                elif command == 'u_sffile': self.scriptParameters[command] = value #K
+                elif command == 'usffile': self.scriptParameters[command] = value #K
                 elif command == 'mufile': self.scriptParameters[command] = value #K
+                elif command == 'phifile': self.scriptParameters[command] = value
                 # Sbatch
                 elif command == 'runsbatch': self.scriptParameters[command] = value
                 elif command == 'numberofprocessors': self.scriptParameters[command] = int(value)
@@ -175,6 +176,12 @@ class System():
             or ('printeverynsets' not in self.programParameters.keys())):
             raise KeyError('Simulation steps or sets weren\'t defined.')
         # state variables.
+        if 'fugacitycoefficient' in self.stateVariables.keys():
+            pressures = self.stateVariables['externalpressure[Pa]']
+            phi = self.stateVariables['fugacitycoefficient']
+            if (len(phi) != len(pressures)) and (len(phi) != 1): 
+                raise ValueError('List of fugacity coefficients must be of the same length as pressures or only of one value.\n'
+                                 f'Number of fugacity coefficients: {len(phi)}; Number of pressures: {len(pressures)}.')
         if 'externaltemperature' not in self.stateVariables.keys(): raise KeyError('ExternalTemperature was not defined.')
         # ensemble.
         if ('ensemble' not in self.programParameters.keys()):
@@ -239,34 +246,47 @@ class System():
                 shutil.rmtree(str(d_ext)+'nm')
                 os.mkdir(str(d_ext)+'nm')
 
-    def ReadChemicalPotential(self):
-        useIdMu = self.stateVariables['useidealchemicalpotential']
+    def ReadFugacityCoefficient(self):
         pressures = self.stateVariables['externalpressure[Pa]']
         temp = self.stateVariables['externaltemperature[K]']
-        if (useIdMu == 'yes' or useIdMu == 'y'):
-            densRef = self.stateVariables['referencedensity[mol/m^3]']*avogadro*1e-27 #nm^-3
-            pressRef = self.stateVariables['referencepressure[Pa]']
-            mass = self.fluidParameters['molarmass[g/mol]']/avogadro*1e-3 #kg
-            epsilon = self.fluidParameters['epsilon_ff[K]']
-            thermalWL = planck/np.sqrt(2*np.pi*mass*kb*temp)
-            mu0 = temp*np.log(densRef*thermalWL**3)
-            mu = mu0+temp*np.log(pressures/pressRef)
-        else: 
-            # The mu file must contain a function called Mu=Mu(P,T) for several pressure points, where Mu cannot change its name.
-            muFile = __import__(self.scriptParameters['mufile'][:-3]) 
-            mu = np.zeros_like(pressures)
-            mu = muFile.Mu(pressures,temperature)
-        print(f'chemicalpotential[K]: {mu}')
+        epsilon = self.fluidParameters['epsilon_ff[K]']
+        mass = self.fluidParameters['molarmass[g/mol]']/avogadro*1e-3 #kg
+        thermalWL = planck/np.sqrt(2*np.pi*mass*kb*temp)
+        idealRho = pressures/(kb*temp)
+        idealMu = temp*np.log(idealRho*thermalWL**3) #K
+        mu = 0 #If mu=0, then there was no phi, phi file or mu file given by the user.
+        if 'fugacitycoefficient' in self.stateVariables.keys():
+            phiValues = self.stateVariables['fugacitycoefficient']
+            if len(phiValues) == 1: phiValues = phiValues[0]
+            mu = idealMu+temp*np.log(phiValues) #K #Check! phiValues must have either the same length as P or 1.
+        elif 'phifile' in self.scriptParameters.keys(): 
+            # The phi file must contain a function called Phi=Phi(P,params) for several pressure points, where Phi cannot change its name.
+            phiFile = __import__(self.scriptParameters['phifile'][:-3]) 
+            params = {**self.fluidParameters, **self.poreParameters, **self.stateVariables}
+            phiValues = phiFile.Phi(pressures,params)
+            self.stateVariables['fugacitycoefficient'] = phiValues
+            mu = idealMu+temp*np.log(phiValues) #K #Check! phi must have the same length as P.
+        elif 'mufile' in self.scriptParameters.keys(): mu = self.ReadChemicalPotential(pressures)
         self.stateVariables['chemicalpotential[K]'] = mu
-        print(f'chemicalpotential: {mu/epsilon}\n')
         self.stateVariables['chemicalpotential'] = mu/epsilon
+        # Print Mu values
+        print(f'chemicalpotential[K]: {mu}')
+        print(f'chemicalpotential: {mu/epsilon}\n')
+
+    def ReadChemicalPotential(self,pressures):
+        # The mu file must contain a function called Mu=Mu(P,params) for several pressure points, where Mu cannot change its name.
+        muFile = __import__(self.scriptParameters['mufile'][:-3]) 
+        params = {**self.fluidParameters, **self.poreParameters, **self.stateVariables}
+        epsilon = self.fluidParameters['epsilon_ff[K]']
+        mu = muFile.Mu(pressures,params)
+        return mu
 
     def WriteSolFile(self):
-        if 'u_sffile' in self.scriptParameters.keys():
+        if 'usffile' in self.scriptParameters.keys():
             # The Usf file must contain a function called Usf=Usf(x,n_s,eps_ff,eps_sf,sigma_ff,sigma_sf,rcut_ff,rcut_sf) for
             #    for several x points, where x is a vector por positions, rcut can be sigma2 (depending on the potential), 
             #    and variable's names can be different (with the exception of Usf).
-            usfFile = __import__(self.scriptParameters['u_sffile'][:-3]) 
+            usfFile = __import__(self.scriptParameters['usffile'][:-3]) 
             scriptName = self.scriptParameters['scriptname']
             molName = self.fluidParameters['moleculename']
             eps_ff = self.fluidParameters['epsilon_ff[K]']
@@ -376,7 +396,7 @@ class System():
         if (ensemble == 'nvt'): 
             firstVariable = self.stateVariables['numberofmolecules']
         if (ensemble == 'gce'): 
-            self.ReadChemicalPotential()
+            self.ReadFugacityCoefficient()
             firstVariable = self.stateVariables['chemicalpotential']
         # Writing input file.
         for i in range(len(poreSizes)):
@@ -386,7 +406,7 @@ class System():
                               f'ens {ensemble} {var} {temperature}\n'\
                               f'record energy\n'\
                               f'model {molName}.mol\n'\
-                              f'summary {molName}_{var}.sum\n'
+                              f'summary {molName}_{i}.sum\n'
                 if (geom == 'bulk' or geom == 'space' or geom == 'box'): 
                         fileContent += f'solid {geom} {reducedPoreSizes[i]}\n'
                 else: fileContent += f'solid {molName}.sol\n'
@@ -475,4 +495,5 @@ if __name__ == '__main__':
     system.WriteSolFile()
     system.WriteSubmitFile()
     print('Simulation set!\n')
+    print('Don\'t forget to add the Chainbuild\'s executable to this path.')
 #EOS
