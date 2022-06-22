@@ -60,10 +60,10 @@ class System():
               '\t\t\tGeometry [number] [name]\n'
               '\t\t\tPoreSize [list of values separated by spaces]\n'
               '\t\t\tN_s [value] (in nm^-2)\n'
-              '\t\t\tEpsilon_sf [value] (in K)\n'
-              '\t\t\tSigma_sf [value] (in K)\n'
-              '\t\t\tSigma2_sf [value] (in nm)\n'
-              '\t\t\tRcut_sf [value] (in nm)\n'
+              '\t\t\tEpsilon_sf [value or list of values separated by spaces] (in K)\n'
+              '\t\t\tSigma_sf [value or list of values separated by spaces] (in K)\n'
+              '\t\t\tSigma2_sf [value or list of values separated by spaces] (in nm)\n'
+              '\t\t\tRcut_sf [value or list of values separated by spaces] (in nm)\n'
               '\t\t# Files containing the potentials:\n'
               '\t\t\tUsfFile [file name] (python script). Include the extension, and use only lower case for the file name.\n'
               '\t\t\tPhiFile [file name] (python script). Include the extension, and use only lower case for the file name.\n'
@@ -88,31 +88,32 @@ class System():
               '\t     \t3 Slit. For U=U(x,y,z)\n'
               '\t     \t5 Cylindrical. For U=U(z,rho)\n'
               '\t     \t6 Cylindrical. For U=U(r)\n'
-              '\t3.-  The U_sf file must contain a function called Usf=Usf(x,params),\n'
+              '\t3.-  You can define an rcut_sf, sigma2_sf or sigma_ff for each of the pore sizes that you create. Write a list of values for it.'
+              '\t4.-  The U_sf file must contain a function called Usf=Usf(x,params),\n'
               '\t     where x is a numpy vector of positions: r, (r,theta), (x,y,z), (r,rho). Also rcut could be sigma2 (depending \n'
               '\t     on the potential), and params is a dictionary with all the fluid-fluid and solid-fluid parameters given by the user.\n'
               '\t     This file doesn\'t need to be created if Geometry specifies bulk, space or box in its second argument.\n'
               '\t     Example of a calling to a parameter in the dictionary: epsilon_ff = param[\'epsilon_ff[K]\']. Also you can see the'
               '\t     whole dictionary by printing it.\n'
-              '\t4.-  The Phi file must contain a function called Phi=Phi(P,params), where P is a numpy array of pressures.\n'
+              '\t5.-  The Phi file must contain a function called Phi=Phi(P,params), where P is a numpy array of pressures.\n'
               '\t     This file doesn\'t need to be created if fugacityCoefficient or a mu file is given. In that case, the program\n'
               '\t     itself will calculate the chemical potentials.\n'
-              '\t5.-  The Mu file must contain a function called Mu=Mu(P,params), where P is a numpy array of pressures.\n'
+              '\t6.-  The Mu file must contain a function called Mu=Mu(P,params), where P is a numpy array of pressures.\n'
               '\t     This file doesn\'t need to be created if FugacityCoefficient or a phi file is given. In that case, the program\n'
               '\t     itself will calculate the chemical potentials.\n'
-              '\t6.-  Chainbuild also calculates chemical potentials by using Widom Insertion. It\'s automatically activated when \n'
+              '\t7.-  Chainbuild also calculates chemical potentials by using Widom Insertion. It\'s automatically activated when \n'
               '\t     defining the NVT ensemble.\n'
-              '\t7.-  You cannot define sigma2 and rcut at the same time (either for fluid-fluid or solid-fluid interactions).\n'
-              '\t8.-  The quantities expressed in reduced units are quantities divided by epsilon_ff[K] or sigma_ff[nm]\n'
-              '\t9.-  The parameters Email, EmailType and JobName don\'t need to be defined if RunSbatch is set to No or is not defined.\n'
-              '\t10.- For any comment in the input file, use #.\n')
+              '\t8.-  You cannot define sigma2 and rcut at the same time (either for fluid-fluid or solid-fluid interactions).\n'
+              '\t9.-  The quantities expressed in reduced units are quantities divided by epsilon_ff[K] or sigma_ff[nm]\n'
+              '\t10.- The parameters Email, EmailType and JobName don\'t need to be defined if RunSbatch is set to No or is not defined.\n'
+              '\t11.- For any comment in the input file, use #.\n')
         sys.exit(0)
 
     def ReadFileOfInputParameters(self):
         inputFileName = self.scriptParameters['inputfile']
         with open(inputFileName,'r') as fileContent: fileLines = fileContent.readlines()
         for line in range(len(fileLines)):
-            params = re.search(r'^\s*([a-z\d_]+)\s+?([\d\.a-z@\s]+)',fileLines[line],flags=re.IGNORECASE)
+            params = re.search(r'^\s*([a-z\d_]+)\s+?([\d\.a-z@\s\-+]+)',fileLines[line],flags=re.IGNORECASE)
             if params:
                 command = params.group(1).lower()
                 value = params.group(2).lower()[:-1]
@@ -141,10 +142,10 @@ class System():
                 elif command == 'poresize': 
                     self.poreParameters[command+'[nm]'] = np.array(list(map(float,params.group(2).split()))) #For several pore sizes. nm
                 elif command == 'n_s': self.poreParameters[command+'[nm^-2]'] = float(value) #nm^-2
-                elif command == 'epsilon_sf': self.poreParameters[command+'[K]'] = float(value) #K
-                elif command == 'sigma_sf': self.poreParameters[command+'[nm]'] = float(value) #nm
-                elif command == 'sigma2_sf': self.poreParameters[command+'[nm]'] = float(value) #nm
-                elif command == 'rcut_sf': self.poreParameters[command+'[nm]'] = float(value) #nm
+                elif command == 'epsilon_sf': self.poreParameters[command+'[K]'] = np.array(list(map(float,value.split()))) #K
+                elif command == 'sigma_sf': self.poreParameters[command+'[nm]'] = np.array(list(map(float,value.split()))) #nm
+                elif command == 'sigma2_sf': self.poreParameters[command+'[nm]'] = np.array(list(map(float,value.split()))) #nm
+                elif command == 'rcut_sf': self.poreParameters[command+'[nm]'] = np.array(list(map(float,value.split()))) #nm
                 elif command == 'geometry': 
                     self.poreParameters[command] = value.split()
                     self.poreParameters[command][0] = int(self.poreParameters[command][0])
@@ -195,6 +196,27 @@ class System():
         if (('rcut_ff' in self.fluidParameters.keys() and 'sigma2_ff' in self.fluidParameters.keys())\
             or ('rcut_sf' in self.poreParameters.keys() and 'sigma2_sf' in self.poreParams.keys())):
             raise KeyError('You must define one either rcut or sigma2, depending on the potential.')
+        poreSizes = self.poreParameters['poresize[nm]']
+        if ('rcut_sf' in self.poreParameters.keys()):
+            rcut_sf = self.poreParameters['rcut_sf[nm]']
+            if (len(rcut_sf) != len(poreSizes)) and (len(rcut_sf) != 1): 
+                raise ValueError('rcut_sf must have the same length as PoreSizes or must be only one value.\n'
+                                 f'rcut_sf length: len(rcut_sf); poreSize length: {len(poreSizes)}')
+        if ('sigma_sf' in self.poreParameters.keys()):
+            sigma_sf = self.poreParameters['sigma_sf[nm]']
+            if (len(sigma_sf) != len(poreSizes)) and (len(sigma_sf) != 1): 
+                raise ValueError('sigma_sf must have the same length as PoreSizes or must be only one value.\n'
+                                 f'sigma_sf length: len(sigma_sf); poreSize length: {len(poreSizes)}')
+        if ('sigma2_sf' in self.poreParameters.keys()):
+            sigma2_sf = self.poreParameters['sigma2_sf[nm]']
+            if (len(sigma2_sf) != len(poreSizes)) and (len(sigma2_sf) != 1): 
+                raise ValueError('sigma2_sf must have the same length as PoreSizes or must be only one value.\n'
+                                 f'sigma2_sf length: len(sigma2_sf); poreSize length: {len(poreSizes)}')
+        if ('epsilon_sf' in self.poreParameters.keys()):
+            epsilon_sf = self.poreParameters['epsilon_sf[nm]']
+            if (len(epsilon_sf) != len(poreSizes)) and (len(epsilon_sf) != 1): 
+                raise ValueError('epsilon_sf must have the same length as PoreSizes or must be only one value.\n'
+                                 f'epsilon_sf length: len(epsilon_sf); poreSize length: {len(poreSizes)}')
         # sigma_ff and epsilon_ff
         if 'sigma_ff[nm]' not in self.fluidParameters.keys(): raise KeyError('sigma_ff was not defined.')
         if 'epsilon_ff[K]' not in self.fluidParameters.keys(): raise KeyError('epsilon_ff was not defined.')
@@ -258,14 +280,14 @@ class System():
         if 'fugacitycoefficient' in self.stateVariables.keys():
             phiValues = self.stateVariables['fugacitycoefficient']
             if len(phiValues) == 1: phiValues = phiValues[0]
-            mu = idealMu+temp*np.log(phiValues) #K #Check! phiValues must have either the same length as P or 1.
+            mu = idealMu+temp*np.log(phiValues) #K
         elif 'phifile' in self.scriptParameters.keys(): 
             # The phi file must contain a function called Phi=Phi(P,params) for several pressure points, where Phi cannot change its name.
             phiFile = __import__(self.scriptParameters['phifile'][:-3]) 
             params = {**self.fluidParameters, **self.poreParameters, **self.stateVariables}
             phiValues = phiFile.Phi(pressures,params)
             self.stateVariables['fugacitycoefficient'] = phiValues
-            mu = idealMu+temp*np.log(phiValues) #K #Check! phi must have the same length as P.
+            mu = idealMu+temp*np.log(phiValues) #K
         elif 'mufile' in self.scriptParameters.keys(): mu = self.ReadChemicalPotential(pressures)
         self.stateVariables['chemicalpotential[K]'] = mu
         self.stateVariables['chemicalpotential'] = mu/epsilon
@@ -283,41 +305,50 @@ class System():
 
     def WriteSolFile(self):
         if 'usffile' in self.scriptParameters.keys():
-            # The Usf file must contain a function called Usf=Usf(x,n_s,eps_ff,eps_sf,sigma_ff,sigma_sf,rcut_ff,rcut_sf) for
+            # The Usf file must contain a function called Usf=Usf(x,n_s,epsilon_ff,epsilon_sf,sigma_ff,sigma_sf,rcut_ff,rcut_sf) for
             #    for several x points, where x is a vector por positions, rcut can be sigma2 (depending on the potential), 
             #    and variable's names can be different (with the exception of Usf).
             usfFile = __import__(self.scriptParameters['usffile'][:-3]) 
             scriptName = self.scriptParameters['scriptname']
             molName = self.fluidParameters['moleculename']
-            eps_ff = self.fluidParameters['epsilon_ff[K]']
+            epsilon_ff = self.fluidParameters['epsilon_ff[K]']
+            epsilon_sf = self.poreParameters['epsilon_sf[K]']
             sigma_ff = self.fluidParameters['sigma_ff[nm]']
+            sigma_sf = self.poreParameters['sigma_sf[nm]']
+            n_s = self.poreParameters['n_s[nm^-2]']
             molarMass = self.fluidParameters['molarmass[g/mol]']
             poreSizes = self.poreParameters['poresize[nm]']
             reducedPoreSizes = self.poreParameters['poresize']
-            n_s = self.poreParameters['n_s[nm^-2]']
-            eps_sf = self.poreParameters['epsilon_sf[K]']
-            sigma_sf = self.poreParameters['sigma_sf[nm]']
             geom = self.poreParameters['geometry']
             rcut_ff, rcut_sf = 0, 0
             cylinderLength = 40.0 # Usefull only for cylindrical geometries. Otherwise, ignore it.
             nUsfPoints = 2000
+            if 'rcut_ff[nm]' in self.fluidParameters.keys(): rcut_ff = self.fluidParameters['rcut_ff[nm]']
+            elif 'sigma2_ff[nm]' in self.fluidParameters.keys(): rcut_ff = self.fluidParameters['sigma2_ff[nm]']
+            if 'rcut_sf[nm]' in self.poreParameters.keys(): rcut_sf = self.poreParameters['rcut_sf[nm]']
+            elif 'sigma2_sf[nm]' in self.poreParameters.keys(): rcut_sf = self.poreParameters['sigma2_sf[nm]']
+            if len(epsilon_sf) == 1: epsilon_sf = np.tile(epsilon_sf[0],len(poreSizes))
+            if len(sigma_sf) == 1: sigma_sf = np.tile(sigma_sf[0],len(poreSizes))
+            if len(rcut_sf) == 1: rcut_sf = np.tile(rcut_sf[0],len(poreSizes))
+            # Writing Sol file.
             for i in range(len(poreSizes)):
+                r_min = 1.0 / nUsfPoints * poreSizes[i] * 0.5
+                self.poreParameters['epsilon_sf[K]'] = epsilon_sf[i]
+                self.poreParameters['sigma_sf[nm]'] = sigma_sf[i]
+                self.poreParameters['poresize[nm]'] = poreSizes[i]
+                self.poreParameters['poresize'] = reducedPoreSizes[i]
                 header = f'## Potential generated by {scriptName} for CHAINBUILD.\n'\
                          f'## Parameters for {molName}: d_ext = {poreSizes[i]} nm, n_s = {n_s} nm^-2, '\
-                         f'molarmass = {molarMass} g/mol, eps_ff = {eps_ff} K, eps_sf = {eps_sf} K, '
+                         f'molarmass = {molarMass} g/mol, epsilon_ff = {epsilon_ff} K, epsilon_sf = {epsilon_sf[i]} K, '
                 # Depending on the potential.
-                if 'rcut_ff[nm]' in self.fluidParameters.keys(): 
-                    rcut_ff = self.fluidParameters['rcut_ff[nm]']
-                    header += f'rcut_ff = {rcut_ff} nm '
+                if 'rcut_ff[nm]' in self.fluidParameters.keys(): header += f'rcut_ff = {rcut_ff} nm '
+                elif 'sigma2_ff[nm]' in self.fluidParameters.keys(): header += f'sigma2_ff = {rcut_ff} nm '
                 if 'rcut_sf[nm]' in self.poreParameters.keys(): 
-                    rcut_sf = self.poreParameters['rcut_sf[nm]']
-                    header += f'rcut_sf = {rcut_sf} nm '
-                if 'sigma2_ff[nm]' in self.fluidParameters.keys(): 
-                    rcut_ff = self.fluidParameters['sigma2_ff[nm]']
-                    header += f'sigma2_ff = {rcut_ff} nm '
-                if 'sigma2_sf[nm]' in self.poreParameters.keys(): 
-                    rcut_sf = self.poreParameters['sigma2_sf[nm]']
-                    header += f'sigma2_sf = {rcut_sf} nm '
+                    self.poreParameters['rcut_sf[nm]'] = rcut_sf[i]
+                    header += f'rcut_sf = {rcut_sf[i]} nm '
+                elif 'sigma2_sf[nm]' in self.poreParameters.keys(): 
+                    self.poreParameters['sigma2_sf[nm]'] = rcut_sf[i]
+                    header += f'sigma2_sf = {rcut_sf[i]} nm '
                 header += f'\n'\
                           f'{geom[0]} #{geom[1]}\n'\
                           f'{cylinderLength}\t{reducedPoreSizes[i]}\t{reducedPoreSizes[i]}\n'\
@@ -327,7 +358,7 @@ class System():
                 #   even if they weren't going to be used.
                 params = {**self.fluidParameters, **self.poreParameters, **self.stateVariables}
                 if (geom[0] == 1 or geom[0] == 6): 
-                    radius = np.linspace(0,poreSizes[i]*0.5,nUsfPoints) #nm
+                    radius = np.linspace(0,poreSizes[i]*0.5-r_min,nUsfPoints) #nm
                     potential = usfFile.Usf(radius,params) #K
                     usfPoints = np.vstack((radius,potential)).T
                     header += f'# r(nm)\tU/eps_FF'
@@ -344,12 +375,18 @@ class System():
                 # if (geom[0] == 5): 
                     # potential = usfFile.Usf(z,rho,params) #K
                     # header += '# z(nm)\trho(nm)\tU/eps_FF'
-                potential /= eps_ff
+                potential /= epsilon_ff
                 np.savetxt(f'{poreSizes[i]}nm/{molName}.sol',usfPoints,delimiter=' ',header=header,footer='# EOF',comments='')
+            self.poreParameters['epsilon_sf[K]'] = epsilon_sf
+            self.poreParameters['sigma_sf[nm]'] = sigma_sf
+            self.poreParameters['poresize[nm]'] = poreSizes
+            self.poreParameters['poresize'] = reducedPoreSizes
+            if 'rcut_sf[nm]' in self.poreParameters.keys(): rcut_sf = self.poreParameters['rcut_sf[nm]']
+            elif 'sigma2_sf[nm]' in self.poreParameters.keys(): rcut_sf = self.poreParameters['sigma2_sf[nm]']
 
     def WriteMolFile(self):
         pot_ff = self.fluidParameters['u_ff']
-        sigma = self.fluidParameters['sigma_ff[nm]']
+        sigma = self.fluidParameters['sigma_ff[nm]']*10 #A
         epsilon = self.fluidParameters['epsilon_ff[K]']
         molarMass = self.fluidParameters['molarmass[g/mol]']
         molName = self.fluidParameters['moleculename']
@@ -367,7 +404,7 @@ class System():
             fileContent += f'sigma {sigma}\n'\
                            f'rcut {rcut_ff}\n'
         if (pot_ff == 'squarewell'):
-            sigma2 = self.fluidParameters['sigma2_ff[nm]']
+            sigma2 = self.fluidParameters['sigma2_ff[nm]']*10 #A
             fileContent += f'sigma1 {sigma}\n'\
                            f'sigma2 {sigma2}\n'
         fileContent += f'end potential {pot_ff}\n#\n'
@@ -406,7 +443,7 @@ class System():
                               f'ens {ensemble} {var} {temperature}\n'\
                               f'record energy\n'\
                               f'model {molName}.mol\n'\
-                              f'summary {molName}_{i}.sum\n'
+                              f'summary {molName}_{var}.sum\n'
                 if (geom == 'bulk' or geom == 'space' or geom == 'box'): 
                         fileContent += f'solid {geom} {reducedPoreSizes[i]}\n'
                 else: fileContent += f'solid {molName}.sol\n'

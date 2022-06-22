@@ -6,19 +6,19 @@ PrintEveryNSets 5000
 Ensemble gce #nvt, gce
 
 # State Variables. Volume is defined in Solid-Fluid Parameters or in U_sfFile.
-ExternalTemperature 303.15 #K
-ExternalPressure 20000 40000 60000 #Pa
-#NumberOfMolecules 100
-FugacityCoefficient 1
+ExternalTemperature 119.6 #K
+ExternalPressure 1e5 #1e-03 62444.6382 #Pa
+#NumberOfMolecules 100 #100 200 300 400
+FugacityCoefficient 1 #1 0.9 0.8 0.7
 
 # Fluid-Fluid Parameters
-MoleculeName ch4
-Sigma_ff 0.398 #nm
-Sigma2_ff 0.4467 #nm. For squarewell potential.
-#Rcut_ff 40 #nm
-Epsilon_ff 148 #K
-MolarMass 16.04 #g/mol
-U_ff SquareWell #lj (Lennard Jones), SquareWell. Intermolecular potential.
+MoleculeName ar
+sigma_ff 0.34 #nm
+sigma2_ff 1 #nm. For squarewell potential.
+rcut_ff 5 #nm
+epsilon_ff 119.6 #K
+MolarMass 39.948 #g/mol
+U_ff lj #LJ (Lennard-Jones), SquareWell. Intermolecular potential.
 
 # Solid-Fluid Parameters
 # /*Comment. Start*/
@@ -33,22 +33,24 @@ U_ff SquareWell #lj (Lennard Jones), SquareWell. Intermolecular potential.
 # 	6 Cylindrical. For U=U(r)
 # /*Comment. End*/
 Geometry 3 Bulk
-PoreSize 5 #nm. d_ext or box-length (It's necessary, even for bulk phases)
-#N_s 38.19 #nm^-2
-#Epsilon_sf 1 #K
-#Sigma_sf 1 #nm
-#Rcut_sf 1 #nm
-#Sigma2_sf 1 #nm
+PoreSize 5 #2 3 4 5 #nm. d_ext or box-length (It's important, even for bulk phases)
+#n_s 38.19 #nm^-2
+#epsilon_sf 1 #1 2 3 4 #K
+#sigma_sf 1 #1 2 3 4 #nm
+#rcut_sf 1 #1 2 3 4 #nm
+#sigma2_sf 1 #1 2 3 4 #nm
 
 # Files containing the potentials
-#U_sfFile squarewell.py #K. File that contains the solid-fluid potential function, where r is the radius.
-#Mu testMu.py #K. File that contains the chemical potential function, where r is the radius.
+#UsfFile usffile.py #K. File that contains the solid-fluid potential function.
+#PhiFile phifile.py #File that contains the fugacity coefficient function.
+#MuFile mufile.py #K. File that contains the chemical potential function.
 
 # SBATCH parameters
 StdOut chain.out
 StdErr chain.err
 RunSbatch yes
-	Email saf5@njit.edu
+	NumberOfProcessors 4
+	Email ucid@njit.edu
 	EmailType all
 	JobName chainbuild
 #EOF
