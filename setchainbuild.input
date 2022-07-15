@@ -1,56 +1,42 @@
 # Simulation parameters
-EquilibrationSets 5000
-ProductionSets 10000
-StepsPerSet 100000
-PrintEveryNSets 5000
+EquilibrationSets 3e4
+ProductionSets 5e4
+StepsPerSet 1e5
+PrintEveryNSets 5e3
 Ensemble gce #nvt, gce
 
 # State Variables. Volume is defined in Solid-Fluid Parameters or in U_sfFile.
-ExternalTemperature 119.6 #K
-ExternalPressure 1e5 #1e-03 62444.6382 #Pa
-#NumberOfMolecules 100 #100 200 300 400
-FugacityCoefficient 1 #1 0.9 0.8 0.7
+ExternalTemperature 87.3 #K
+ExternalPressure 101.30214249   5427.66216058  10754.02217867  16080.38219676 21406.74221486  26733.10223295  32059.46225104  37385.82226914 42712.18228723  48038.54230532  53364.90232341  58691.26234151 64017.6223596   69343.98237769  74670.34239578  79996.70241388 85323.06243197  90649.42245006  95975.78246816 101302.14248625 #Pa
+ChemicalPotential -1741.44769236 -1393.89275454 -1334.19951648 -1299.07696379 -1274.09991896 -1254.70215121 -1238.84063234 -1225.42269437 -1213.79497775 -1203.53552764 -1194.35596611 -1186.05045424 -1178.46691871 -1171.48981747 -1165.02930151 -1159.01411994 -1153.38681672 -1148.10038447 -1143.11587506 -1138.40065651 #K
 
 # Fluid-Fluid Parameters
 MoleculeName ar
 sigma_ff 0.34 #nm
-sigma2_ff 1 #nm. For squarewell potential.
-rcut_ff 5 #nm
+#sigma2_ff 0.76833 #nm. For fluid-fluid squarewell potential.
+rcut_ff 1.7 #nm
 epsilon_ff 119.6 #K
 MolarMass 39.948 #g/mol
-U_ff lj #LJ (Lennard-Jones), SquareWell. Intermolecular potential.
+U_ff lj #lj (Lennard Jones), SquareWell. Intermolecular potential.
 
 # Solid-Fluid Parameters
-# /*Comment. Start*/
-# Geometry: 
-# 	1 Spherical. For U=U(r)
-# 	2 Spherical. For U=U(r,theta)
-# 	3 Bulk. With PBC (bulk), doesn't need a .sol file
-# 	3 Space. Without PBC (space), doesn't need a .sol file
-# 	3 Box. With inf potentials as walls (box), doesn't need a .sol file
-# 	3 Slit. For U=U(x,y,z)
-# 	5 Cylindrical. For U=U(z,rho)
-# 	6 Cylindrical. For U=U(r)
-# /*Comment. End*/
-Geometry 3 Bulk
-PoreSize 5 #2 3 4 5 #nm. d_ext or box-length (It's important, even for bulk phases)
-#n_s 38.19 #nm^-2
-#epsilon_sf 1 #1 2 3 4 #K
-#sigma_sf 1 #1 2 3 4 #nm
-#rcut_sf 1 #1 2 3 4 #nm
-#sigma2_sf 1 #1 2 3 4 #nm
+Geometry 1 Spherical
+PoreSize 1 3 5 #nm. d_ext or box-length (It's necessary, even for bulk phases)
+n_s 15.3 #nm^-2
+epsilon_sf 171.24 #K
+sigma_sf 0.3 #nm
+#sigma2_sf 0.35. For solid-fluid squarewell potential.
+rcut_sf 3.4 #nm
 
 # Files containing the potentials
-#UsfFile usffile.py #K. File that contains the solid-fluid potential function.
-#PhiFile phifile.py #File that contains the fugacity coefficient function.
-#MuFile mufile.py #K. File that contains the chemical potential function.
+UsfFile usffile.py #K. File that contains the solid-fluid potential function, where r is the radius.
+MuFile mufile.py #K. File that contains the chemical potential function, where r is the radius.
 
 # SBATCH parameters
-StdOut chain.out
-StdErr chain.err
+StdOut mcm41ar.out
+StdErr mcm41ar.err
 RunSbatch yes
-	NumberOfProcessors 4
 	Email ucid@njit.edu
-	EmailType all
-	JobName chainbuild
+	EmailType END
+	JobName arsph87
 #EOF

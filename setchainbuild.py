@@ -127,12 +127,11 @@ class System():
                 elif command == 'ensemble': self.programParameters[command] = value #gce, nvt
                 # State variables
                 elif command == 'externalpressure': 
-                    self.stateVariables[command+'[Pa]'] = np.array(list(map(float,value.split()))) #For several pressures. Pa
+                    self.stateVariables[command+'[Pa]'] = np.array(list(map(float,value.split()))) #For several pressures.
                 elif command == 'numberofmolecules': 
                     self.stateVariables[command] = np.array(list(map(int,value.split()))) #For several numbers of molecules.
                 elif command == 'externaltemperature': self.stateVariables[command+'[K]'] = float(value)
-                elif command == 'fugacitycoefficient': self.stateVariables[command] = np.array(list(map(float,params.group(2).split()))) # For several values 
-                elif command == 'referencedensity': self.stateVariables[command+'[m^-3]'] = np.array(list(map(float,params.group(2).split()))) # For several values 
+                elif command == 'chemicalpotential': self.stateVariables[command+'[K]'] = np.array(list(map(float,params.group(2).split()))) # For several values 
                 # Fluid-Fluid parameters
                 elif command == 'moleculename': self.fluidParameters[command] = value #Arbitrary
                 elif command == 'sigma_ff': self.fluidParameters[command+'[nm]'] = float(value) #nm
@@ -155,7 +154,6 @@ class System():
                 # Files to read
                 elif command == 'usffile': self.scriptParameters[command] = value #K
                 elif command == 'mufile': self.scriptParameters[command] = value #K
-                elif command == 'phifile': self.scriptParameters[command] = value
                 # Sbatch
                 elif command == 'runsbatch': self.scriptParameters[command] = value
                 elif command == 'numberofprocessors': self.scriptParameters[command] = int(float(value))
@@ -180,12 +178,12 @@ class System():
             or ('printeverynsets' not in self.programParameters.keys())):
             raise KeyError('Simulation steps or sets weren\'t defined.')
         # state variables.
-        if 'fugacitycoefficient' in self.stateVariables.keys():
+        if 'chemicalpotential[K]' in self.stateVariables.keys():
             pressures = self.stateVariables['externalpressure[Pa]']
-            phi = self.stateVariables['fugacitycoefficient']
-            if (len(phi) != len(pressures)) and (len(phi) != 1): 
-                raise ValueError('List of fugacity coefficients must be of the same length as pressures or only of one value.\n'
-                                 f'Number of fugacity coefficients: {len(phi)}; Number of pressures: {len(pressures)}.')
+            mu = self.stateVariables['chemicalpotential[K]']
+            if (len(mu) != len(pressures)): 
+                raise ValueError('List of chemical potentials must be of the same length as pressures.\n'
+                                 f'Number of chemical potentials given: {len(mu)}; Number of pressures: {len(pressures)}.')
         if 'externaltemperature' not in self.stateVariables.keys(): raise KeyError('ExternalTemperature was not defined.')
         # ensemble.
         if ('ensemble' not in self.programParameters.keys()):
@@ -271,45 +269,28 @@ class System():
                 shutil.rmtree(str(d_ext)+'nm')
                 os.mkdir(str(d_ext)+'nm')
 
-    def ReadFugacityCoefficient(self):
+    def ReadChemicalPotential(self):
         pressures = self.stateVariables['externalpressure[Pa]']
         temp = self.stateVariables['externaltemperature[K]']
         epsilon = self.fluidParameters['epsilon_ff[K]']
         mass = self.fluidParameters['molarmass[g/mol]']/avogadro*1e-3 #kg
-        thermalWL = planck/np.sqrt(2*np.pi*mass*kb*temp)
-        rho, idealMu, mu = 0, 0, 0 #If mu=0, then there was no phi, phi file or mu file given by the user.
-        if 'fugacitycoefficient' in self.stateVariables.keys():
-            phiValues = self.stateVariables['fugacitycoefficient']
-            if 'referencedensity[m^-3]' in self.stateVariables.keys(): rho = self.stateVariables['referencedensity[m^-3]']
-            else: 
-                # If no reference density is given, the density of an ideal gas will be used.
-                rho = pressures/(kb*temp) #m^-3
-                self.stateVariables['referencedensity[m^-3]'] = rho
-            idealMu = temp*np.log(rho*thermalWL**3) #K
-            mu = idealMu+temp*np.log(phiValues) #K
-        elif 'phifile' in self.scriptParameters.keys(): 
-            # The phi file must contain a function called Phi=Phi(P,params) for several pressure points, where Phi cannot change its name.
-            # It must return tuples of two elements: Density (in m^-3) and fugacity coefficient, both at the given pressures P.
-            phiFile = __import__(self.scriptParameters['phifile'][:-3]) 
+        if 'chemicalpotential[K]' in self.stateVariables.keys(): mu = self.stateVariables['chemicalpotential[K]']
+        elif 'mufile' in self.scriptParameters.keys(): 
+            # The mu file must contain a function called Mu=Mu(P,params) for several pressure points, 
+            # where Mu cannot change its name.
+            muFile = __import__(self.scriptParameters['mufile'][:-3]) 
             params = {**self.fluidParameters, **self.poreParameters, **self.stateVariables}
-            rho, phiValues = phiFile.Phi(pressures,params)
-            self.stateVariables['fugacitycoefficient'] = phiValues
-            self.stateVariables['referencedensity[m^-3]'] = rho
-            idealMu = temp*np.log(rho*thermalWL**3) #K
-            mu = idealMu+temp*np.log(phiValues) #K
-        elif 'mufile' in self.scriptParameters.keys(): mu = self.ReadChemicalPotential(pressures) #K
+            mu = muFile.Mu(pressures,params) #K
+        else: 
+            # If no chemical potential is given, the script will calculate it assuming that the fluid is an ideal gas.
+            thermalWL = planck/np.sqrt(2*np.pi*mass*kb*temp) #m
+            rho = pressures/(kb*temp) #m^-3
+            mu = temp*np.log(rho*thermalWL**3) #K
         self.stateVariables['chemicalpotential[K]'] = mu
         self.stateVariables['chemicalpotential'] = mu/epsilon
         # Print Mu values
-        print(f'chemicalpotential[K]: {mu}')
-        print(f'chemicalpotential: {mu/epsilon}\n')
-
-    def ReadChemicalPotential(self,pressures):
-        # The mu file must contain a function called Mu=Mu(P,params) for several pressure points, where Mu cannot change its name.
-        muFile = __import__(self.scriptParameters['mufile'][:-3]) 
-        params = {**self.fluidParameters, **self.poreParameters, **self.stateVariables}
-        mu = muFile.Mu(pressures,params) #K
-        return mu 
+        print(f'chemicalpotential[K]: {mu}\n'\
+              f'chemicalpotential: {mu/epsilon}\n')
 
     def WriteSolFile(self):
         if 'usffile' in self.scriptParameters.keys():
@@ -448,7 +429,7 @@ class System():
         if (ensemble == 'nvt'): 
             firstVariable = self.stateVariables['numberofmolecules']
         if (ensemble == 'gce'): 
-            self.ReadFugacityCoefficient()
+            self.ReadChemicalPotential()
             firstVariable = self.stateVariables['chemicalpotential']
         # Writing input file.
         for i in range(len(poreSizes)):
