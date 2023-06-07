@@ -86,9 +86,9 @@ class System():
               '\t     \t3 Bulk. With PBC, doesn\'t need a U_sf file\n'
               '\t     \t3 Space. Without PBC, doesn\'t need a U_sf file\n'
               '\t     \t3 Box. With inf potentials as walls, doesn\'t need a U_sf file\n'
-              '\t     \t3 Slit. For U=U(x,y,z)\n'
               '\t     \t5 Cylindrical. For U=U(z,rho)\n'
               '\t     \t6 Cylindrical. For U=U(r)\n'
+              '\t     \t7 Slit. For U=U(z)\n'
               '\t3.-  You can define an rcut_sf, sigma2_sf or sigma_ff for each of the pore sizes that you create. Write a list of values for it.'
               '\t4.-  The U_sf file must contain a function called Usf=Usf(x,params),\n'
               '\t     where x is a numpy vector of positions: r, (r,theta), (x,y,z), (r,rho). "params" is a dictionary that contains all the\n'
@@ -353,22 +353,12 @@ class System():
                     header += f'{reducedPoreSizes[i]}\t{reducedPoreSizes[i]}\t{reducedPoreSizes[i]}\n'\
                               f'{nUsfPoints} 0\n'\
                               f'# r(nm)\tU/eps_FF'
-                # In progress ...
-                # elif (geom[0] == 2): # Usf = Usf(x, params), where x = (r, theta)
-                    # radius = np.linspace(0,poreSizes[i]*0.5-rmin,nUsfPoints)
-                    # theta = np.linspace(0,2*np.pi,nUsfPoints)
-                    # xVector = np.vstack((radius,theta)).T
-                    # header += '# r(nm)\ttheta(°)\tU/eps_FF'
-                # elif (geom[0] == 3): # Usf = Usf(x, params), where x = (y, z). Slit geometries
-                    # y = np.linspace(0,poreSizes[i]-rmin,nUsfPoints)
-                    # z = np.linspace(0,poreSizes[i]-rmin,nUsfPoints)
-                    # xVector = np.vstack((y,z)).T
-                    # header += '# x(nm)\ty(nm)\tz(nm)\tU/eps_FF'
-                # elif (geom[0] == 5): # Usf = Usf(x, params), where x = (r, rho)
-                    # z = np.linspace(0,poreSizes[i]*0.5-rmin,nUsfPoints)
-                    # rho = np.linspace(0,2*np.pi,nUsfPoints)
-                    # xVector = np.vstack((z,rho)).T
-                    # header += '# z(nm)\trho(nm)\tU/eps_FF'
+                if (geom[0] == 7): # Usf = Usf(x, params), where x is the distance to the walls from the center 
+                    # of the pore in the z direction. Cartesian geometries
+                    xVector = np.linspace(-poreSizes[i]*0.5+r_min,poreSizes[i]*0.5-r_min,nUsfPoints) #nm
+                    header += f'{length}\t{length}\t{reducedPoreSizes[i]}\n'\
+                              f'{nUsfPoints} 0\n'\
+                              f'# z(nm)\tU/eps_FF'
                 potential = usfFile.Usf(xVector,params) #K
                 potential /= epsilon_ff
                 usfPoints = np.vstack((xVector,potential)).T
