@@ -33,8 +33,6 @@ UsfFile usffile.py #K. File that contains the solid-fluid potential function, wh
 MuFile mufile.py #K. File that contains the chemical potential function, where r is the radius.
 
 # SBATCH parameters
-StdOut mcm41ar.out
-StdErr mcm41ar.err
 RunSbatch yes
 	Email ucid@njit.edu
 	EmailType END

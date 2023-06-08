@@ -70,8 +70,6 @@ class System():
               '\t\t\tPhiFile [file name] (python script). Include the extension, and use only lower case for the file name.\n'
               '\t\t\tMuFile [file name] (python script). Include the extension, and use only lower case for the file name.\n'
               '\t\t# Bash Parameters:\n'
-              '\t\t\tStdOut [file name]\n'
-              '\t\t\tStdErr [file name]\n'
               '\t\t\tRunSbatch [Yes|No]\n'
               '\t\t\t\tNumberOfProcessors [value]. Only if RunSbatch is set to No\n'
               '\t\t\t\tEmail [email address]\n'
@@ -86,9 +84,9 @@ class System():
               '\t     \t3 Bulk. With PBC, doesn\'t need a U_sf file\n'
               '\t     \t3 Space. Without PBC, doesn\'t need a U_sf file\n'
               '\t     \t3 Box. With inf potentials as walls, doesn\'t need a U_sf file\n'
-              '\t     \t3 Slit. For U=U(x,y,z)\n'
               '\t     \t5 Cylindrical. For U=U(z,rho)\n'
               '\t     \t6 Cylindrical. For U=U(r)\n'
+              '\t     \t7 Slit. For U=U(z)\n'
               '\t3.-  You can define an rcut_sf, sigma2_sf or sigma_ff for each of the pore sizes that you create. Write a list of values for it.'
               '\t4.-  The U_sf file must contain a function called Usf=Usf(x,params),\n'
               '\t     where x is a numpy vector of positions: r, (r,theta), (x,y,z), (r,rho). "params" is a dictionary that contains all the\n'
@@ -115,7 +113,7 @@ class System():
         inputFileName = self.scriptParameters['inputfile']
         with open(inputFileName,'r') as fileContent: fileLines = fileContent.readlines()
         for line in range(len(fileLines)):
-            params = re.search(r'^\s*([a-z\d_]+)\s+?([\d\.a-z@\s\-+]+)',fileLines[line],flags=re.IGNORECASE)
+            params = re.search(r'^\s*([a-z\d_]+)\s+?([\d\.a-z@,\s\-+]+)',fileLines[line],flags=re.IGNORECASE)
             if params:
                 command = params.group(1).lower()
                 value = params.group(2).lower()[:-1]
@@ -159,8 +157,6 @@ class System():
                 elif command == 'numberofprocessors': self.scriptParameters[command] = int(float(value))
                 elif command == 'email': self.scriptParameters[command] = value
                 elif command == 'emailtype': self.scriptParameters[command] = value
-                elif command == 'stdout': self.scriptParameters[command] = value
-                elif command == 'stderr': self.scriptParameters[command] = value
                 elif command == 'jobname': self.scriptParameters[command] = value
         # Reducing parameters and variables.
         self.stateVariables['externaltemperature'] = self.stateVariables['externaltemperature[K]']/self.fluidParameters['epsilon_ff[K]']
@@ -238,8 +234,6 @@ class System():
         if 'poresize' not in self.poreParameters.keys(): raise KeyError('PoreSize was not defined.')
         # script
         if 'runsbatch' not in self.scriptParameters.keys(): raise KeyError('RunSbatch was not determined: Yes or No.')
-        if 'stdout' not in self.scriptParameters.keys(): raise KeyError('StdOut file was not defined. Command StdOut [file name]')
-        if 'stderr' not in self.scriptParameters.keys(): raise KeyError('StdErr was not defined. Command StdErr [file name]')
 
     def PrintInputParameters(self):
         programParams = self.programParameters
@@ -330,8 +324,8 @@ class System():
                          f'## Parameters for {molName}: d_ext = {poreSizes[i]} nm, n_s = {n_s} nm^-2, '\
                          f'molarmass = {molarMass} g/mol, epsilon_ff = {epsilon_ff} K, epsilon_sf = {epsilon_sf[i]} K, '
                 # Depending on the potential.
-                if 'rcut_ff[nm]' in self.fluidParameters.keys(): header += f'rcut_ff = {rcut_ff} nm '
-                elif 'sigma2_ff[nm]' in self.fluidParameters.keys(): header += f'sigma2_ff = {rcut_ff} nm '
+                if 'rcut_ff[nm]' in self.fluidParameters.keys(): header += f'rcut_ff = {rcut_ff} nm, '
+                elif 'sigma2_ff[nm]' in self.fluidParameters.keys(): header += f'sigma2_ff = {rcut_ff} nm, '
                 if 'rcut_sf[nm]' in self.poreParameters.keys(): 
                     self.poreParameters['rcut_sf[nm]'] = rcut_sf[i]
                     header += f'rcut_sf = {rcut_sf[i]} nm '
@@ -353,22 +347,12 @@ class System():
                     header += f'{reducedPoreSizes[i]}\t{reducedPoreSizes[i]}\t{reducedPoreSizes[i]}\n'\
                               f'{nUsfPoints} 0\n'\
                               f'# r(nm)\tU/eps_FF'
-                # In progress ...
-                # elif (geom[0] == 2): # Usf = Usf(x, params), where x = (r, theta)
-                    # radius = np.linspace(0,poreSizes[i]*0.5-rmin,nUsfPoints)
-                    # theta = np.linspace(0,2*np.pi,nUsfPoints)
-                    # xVector = np.vstack((radius,theta)).T
-                    # header += '# r(nm)\ttheta(°)\tU/eps_FF'
-                # elif (geom[0] == 3): # Usf = Usf(x, params), where x = (y, z). Slit geometries
-                    # y = np.linspace(0,poreSizes[i]-rmin,nUsfPoints)
-                    # z = np.linspace(0,poreSizes[i]-rmin,nUsfPoints)
-                    # xVector = np.vstack((y,z)).T
-                    # header += '# x(nm)\ty(nm)\tz(nm)\tU/eps_FF'
-                # elif (geom[0] == 5): # Usf = Usf(x, params), where x = (r, rho)
-                    # z = np.linspace(0,poreSizes[i]*0.5-rmin,nUsfPoints)
-                    # rho = np.linspace(0,2*np.pi,nUsfPoints)
-                    # xVector = np.vstack((z,rho)).T
-                    # header += '# z(nm)\trho(nm)\tU/eps_FF'
+                if (geom[0] == 7): # Usf = Usf(x, params), where x is the distance to the walls from the center 
+                    # of the pore in the z direction. Cartesian geometries
+                    xVector = np.linspace(-poreSizes[i]*0.5+r_min,poreSizes[i]*0.5-r_min,nUsfPoints) #nm
+                    header += f'{length}\t{length}\t{reducedPoreSizes[i]}\n'\
+                              f'{nUsfPoints} 0\n'\
+                              f'# z(nm)\tU/eps_FF'
                 potential = usfFile.Usf(xVector,params) #K
                 potential /= epsilon_ff
                 usfPoints = np.vstack((xVector,potential)).T
@@ -451,8 +435,6 @@ class System():
     def WriteSubmitFile(self):
         ensemble = self.programParameters['ensemble']
         runsbatch = self.scriptParameters['runsbatch']
-        output = self.scriptParameters['stdout']
-        outerr = self.scriptParameters['stderr']
         poreSizes = self.poreParameters['poresize[nm]']
         molName = self.fluidParameters['moleculename']
         firstVariable = []
@@ -467,11 +449,11 @@ class System():
                 for var in firstVariable:
                     jobName = self.scriptParameters['jobname']
                     email = self.scriptParameters['email']
-                    emailType = self.scriptParameters['emailtype']
+                    emailType = self.scriptParameters['emailtype'].upper()
                     fileContent = f'#!/bin/sh\n\n'\
                                   f'#SBATCH -J {jobName}\n'\
-                                  f'#SBATCH -o {output}\n'\
-                                  f'#SBATCH -e {outerr}\n'\
+                                  f'#SBATCH -o {molName}_{var}.out\n'\
+                                  f'#SBATCH -e {molName}_{var}.err\n'\
                                   f'#SBATCH --nodes=1\n'\
                                   f'#SBATCH --ntasks=1\n'\
                                   f'#SBATCH --cpus-per-task=1\n'\
