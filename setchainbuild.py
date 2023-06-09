@@ -1,13 +1,13 @@
 # Author: Santiago A. Flores Roman
 # Describption: Edition of the file Usf-potential.py, created by Dr. Gor to simulate on Chainbuild.
 # Requirements: Python3.
-# Instructions: 
+# Instructions:
 #   Run the following command: python3 UsfPotential.py [File of Potentials] [File of Input Parameters]
-#   The script will create the .sol, .inp, and .mol files, as well as an sbatch file 
+#   The script will create the .sol, .inp, and .mol files, as well as an sbatch file
 #   (and a bash file) that will run several points according to the File of Input Parameters.
 #   To run Chainbuild, its excecutable (chainbuild) must be on the same path of the rest of the input files
 #   (mol, sol, and inp).
-# 
+#
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 import numpy as np
@@ -27,6 +27,7 @@ class System():
         self.scriptParameters = {}
         self.scriptParameters['inputfile'] = argv[1]
         self.scriptParameters['scriptname'] = argv[0]
+        self.scriptParameters['initfiles'] = None
 
     def Help(self):
         scriptName = self.scriptParameters['scriptname']
@@ -70,8 +71,6 @@ class System():
               '\t\t\tPhiFile [file name] (python script). Include the extension, and use only lower case for the file name.\n'
               '\t\t\tMuFile [file name] (python script). Include the extension, and use only lower case for the file name.\n'
               '\t\t# Bash Parameters:\n'
-              '\t\t\tStdOut [file name]\n'
-              '\t\t\tStdErr [file name]\n'
               '\t\t\tRunSbatch [Yes|No]\n'
               '\t\t\t\tNumberOfProcessors [value]. Only if RunSbatch is set to No\n'
               '\t\t\t\tEmail [email address]\n'
@@ -115,10 +114,10 @@ class System():
         inputFileName = self.scriptParameters['inputfile']
         with open(inputFileName,'r') as fileContent: fileLines = fileContent.readlines()
         for line in range(len(fileLines)):
-            params = re.search(r'^\s*([a-z\d_]+)\s+?([\d\.a-z@\s\-+]+)',fileLines[line],flags=re.IGNORECASE)
+            params = re.search(r'^\s*([a-z\d_]+)\s+?\b([-\w\d,\.+@\s]+)\b',fileLines[line],flags=re.IGNORECASE)
             if params:
                 command = params.group(1).lower()
-                value = params.group(2).lower()[:-1]
+                value = params.group(2).lower()
                 # Program parameters
                 if command == 'equilibrationsets': self.programParameters[command] = int(float(value))
                 elif command == 'productionsets': self.programParameters[command] = int(float(value))
@@ -126,12 +125,13 @@ class System():
                 elif command == 'printeverynsets': self.programParameters[command] = int(float(value))
                 elif command == 'ensemble': self.programParameters[command] = value #gce, nvt
                 # State variables
-                elif command == 'externalpressure': 
+                elif command == 'externalpressure':
                     self.stateVariables[command+'[Pa]'] = np.array(list(map(float,value.split()))) #For several pressures.
-                elif command == 'numberofmolecules': 
+                elif command == 'numberofmolecules':
                     self.stateVariables[command] = np.array(list(map(int,value.split()))) #For several numbers of molecules.
                 elif command == 'externaltemperature': self.stateVariables[command+'[K]'] = float(value)
-                elif command == 'chemicalpotential': self.stateVariables[command+'[K]'] = np.array(list(map(float,params.group(2).split()))) # For several values 
+                elif command == 'chemicalpotential': 
+                    self.stateVariables[command+'[K]'] = np.array(list(map(float,params.group(2).split()))) # For several values
                 # Fluid-Fluid parameters
                 elif command == 'moleculename': self.fluidParameters[command] = value #Arbitrary
                 elif command == 'sigma_ff': self.fluidParameters[command+'[nm]'] = float(value) #nm
@@ -141,26 +141,26 @@ class System():
                 elif command == 'molarmass': self.fluidParameters[command+'[g/mol]'] = float(value) #g/mol
                 elif command == 'u_ff': self.fluidParameters[command] = value #LennardJones, SquareWell
                 # Pore parameters
-                elif command == 'poresize': 
+                elif command == 'poresize':
                     self.poreParameters[command+'[nm]'] = np.array(list(map(float,params.group(2).split()))) #For several pore sizes. nm
                 elif command == 'n_s': self.poreParameters[command+'[nm^-2]'] = float(value) #nm^-2
                 elif command == 'epsilon_sf': self.poreParameters[command+'[K]'] = np.array(list(map(float,value.split()))) #K
                 elif command == 'sigma_sf': self.poreParameters[command+'[nm]'] = np.array(list(map(float,value.split()))) #nm
                 elif command == 'sigma2_sf': self.poreParameters[command+'[nm]'] = np.array(list(map(float,value.split()))) #nm
                 elif command == 'rcut_sf': self.poreParameters[command+'[nm]'] = np.array(list(map(float,value.split()))) #nm
-                elif command == 'geometry': 
+                elif command == 'geometry':
                     self.poreParameters[command] = value.split()
                     self.poreParameters[command][0] = int(float(self.poreParameters[command][0]))
                 # Files to read
+                elif command == 'initfiles': 
+                    self.scriptParameters[command] = np.array(list(map(str,params.group(2).split()))) #Input file for each pore size.
                 elif command == 'usffile': self.scriptParameters[command] = value #K
                 elif command == 'mufile': self.scriptParameters[command] = value #K
                 # Sbatch
                 elif command == 'runsbatch': self.scriptParameters[command] = value
                 elif command == 'numberofprocessors': self.scriptParameters[command] = int(float(value))
                 elif command == 'email': self.scriptParameters[command] = value
-                elif command == 'emailtype': self.scriptParameters[command] = value
-                elif command == 'stdout': self.scriptParameters[command] = value
-                elif command == 'stderr': self.scriptParameters[command] = value
+                elif command == 'emailtype': self.scriptParameters[command] = value.upper()
                 elif command == 'jobname': self.scriptParameters[command] = value
         # Reducing parameters and variables.
         self.stateVariables['externaltemperature'] = self.stateVariables['externaltemperature[K]']/self.fluidParameters['epsilon_ff[K]']
@@ -181,7 +181,7 @@ class System():
         if 'chemicalpotential[K]' in self.stateVariables.keys():
             pressures = self.stateVariables['externalpressure[Pa]']
             mu = self.stateVariables['chemicalpotential[K]']
-            if (len(mu) != len(pressures)): 
+            if (len(mu) != len(pressures)):
                 raise ValueError('List of chemical potentials must be of the same length as pressures.\n'
                                  f'Number of chemical potentials given: {len(mu)}; Number of pressures: {len(pressures)}.')
         if 'externaltemperature' not in self.stateVariables.keys(): raise KeyError('ExternalTemperature was not defined.')
@@ -189,7 +189,7 @@ class System():
         if ('ensemble' not in self.programParameters.keys()):
             raise KeyError('Ensemble was not defined: nvt or gce.')
         ensemble = self.programParameters['ensemble']
-        if (ensemble != 'gce' and ensemble != 'nvt'): 
+        if not re.search('(gce)|(nvt)', ensemble):
             raise NameError(f'Wrong ensemble. Only two are accepted: gce (Grand Canonical ensemble) and nvt (Canonical ensemble). '
                             f'Ensemble given: {ensemble}')
         # Fluid-Fluid and Solid-Fluid parameters.
@@ -200,22 +200,22 @@ class System():
         poreSizes = self.poreParameters['poresize[nm]']
         if ('rcut_sf' in self.poreParameters.keys()):
             rcut_sf = self.poreParameters['rcut_sf[nm]']
-            if (len(rcut_sf) != len(poreSizes)) and (len(rcut_sf) != 1): 
+            if (len(rcut_sf) != len(poreSizes)) and (len(rcut_sf) != 1):
                 raise ValueError('rcut_sf must have the same length as PoreSizes or must be only one value.\n'
                                  f'rcut_sf length: len(rcut_sf); poreSize length: {len(poreSizes)}')
         if ('sigma_sf' in self.poreParameters.keys()):
             sigma_sf = self.poreParameters['sigma_sf[nm]']
-            if (len(sigma_sf) != len(poreSizes)) and (len(sigma_sf) != 1): 
+            if (len(sigma_sf) != len(poreSizes)) and (len(sigma_sf) != 1):
                 raise ValueError('sigma_sf must have the same length as PoreSizes or must be only one value.\n'
                                  f'sigma_sf length: len(sigma_sf); poreSize length: {len(poreSizes)}')
         if ('sigma2_sf' in self.poreParameters.keys()):
             sigma2_sf = self.poreParameters['sigma2_sf[nm]']
-            if (len(sigma2_sf) != len(poreSizes)) and (len(sigma2_sf) != 1): 
+            if (len(sigma2_sf) != len(poreSizes)) and (len(sigma2_sf) != 1):
                 raise ValueError('sigma2_sf must have the same length as PoreSizes or must be only one value.\n'
                                  f'sigma2_sf length: len(sigma2_sf); poreSize length: {len(poreSizes)}')
         if ('epsilon_sf' in self.poreParameters.keys()):
             epsilon_sf = self.poreParameters['epsilon_sf[nm]']
-            if (len(epsilon_sf) != len(poreSizes)) and (len(epsilon_sf) != 1): 
+            if (len(epsilon_sf) != len(poreSizes)) and (len(epsilon_sf) != 1):
                 raise ValueError('epsilon_sf must have the same length as PoreSizes or must be only one value.\n'
                                  f'epsilon_sf length: len(epsilon_sf); poreSize length: {len(poreSizes)}')
         # sigma_ff and epsilon_ff
@@ -226,20 +226,18 @@ class System():
         # U_ff
         if 'u_ff' not in self.fluidParameters.keys(): raise KeyError('Intermolecular potential was not defined.')
         uff = self.fluidParameters['u_ff']
-        if uff != 'squarewell' and uff != 'lj': 
+        if not re.search('(squarewell)|(lj)', uff):
             raise NameError('Wrong intermolecular potential. Valid potentials: LJ (Lennard Jones) and SquareWell. '
                             f'Potential given: {uff}')
         # geometry
         if 'geometry' not in self.poreParameters.keys():
             raise KeyError('Geometry was not defined.')
-        geom = self.poreParameters['geometry']        
+        geom = self.poreParameters['geometry']
         if (len(geom) != 2): raise NameError(f'Geometry must have two arguments. Arguments given: {geom}')
         # poresize
         if 'poresize' not in self.poreParameters.keys(): raise KeyError('PoreSize was not defined.')
         # script
         if 'runsbatch' not in self.scriptParameters.keys(): raise KeyError('RunSbatch was not determined: Yes or No.')
-        if 'stdout' not in self.scriptParameters.keys(): raise KeyError('StdOut file was not defined. Command StdOut [file name]')
-        if 'stderr' not in self.scriptParameters.keys(): raise KeyError('StdErr was not defined. Command StdErr [file name]')
 
     def PrintInputParameters(self):
         programParams = self.programParameters
@@ -257,7 +255,7 @@ class System():
         for param in poreParams.keys(): print(f'{param}: {poreParams[param]}')
         print('\nState Variables:')
         for param in stateVars.keys(): print(f'{param}: {stateVars[param]}')
-        print('\nInput function files:')
+        print('\nInput files:')
         for param in scriptParams.keys(): print(f'{param}: {scriptParams[param]}')
         print('')
 
@@ -275,13 +273,13 @@ class System():
         epsilon = self.fluidParameters['epsilon_ff[K]']
         mass = self.fluidParameters['molarmass[g/mol]']/avogadro*1e-3 #kg
         if 'chemicalpotential[K]' in self.stateVariables.keys(): mu = self.stateVariables['chemicalpotential[K]']
-        elif 'mufile' in self.scriptParameters.keys(): 
-            # The mu file must contain a function called Mu=Mu(P,params) for several pressure points, 
+        elif 'mufile' in self.scriptParameters.keys():
+            # The mu file must contain a function called Mu=Mu(P,params) for several pressure points,
             # where Mu cannot change its name.
-            muFile = __import__(self.scriptParameters['mufile'][:-3]) 
+            muFile = __import__(self.scriptParameters['mufile'][:-3])
             params = {**self.fluidParameters, **self.poreParameters, **self.stateVariables}
             mu = muFile.Mu(pressures,params) #K
-        else: 
+        else:
             # If no chemical potential is given, the script will calculate it assuming that the fluid is an ideal gas.
             thermalWL = planck/np.sqrt(2*np.pi*mass*kb*temp) #m
             rho = pressures/(kb*temp) #m^-3
@@ -294,10 +292,10 @@ class System():
 
     def WriteSolFile(self):
         if 'usffile' in self.scriptParameters.keys():
-            # The Usf file must contain a function called Usf=Usf(x,params) for several x points, where x is a vector of 
+            # The Usf file must contain a function called Usf=Usf(x,params) for several x points, where x is a vector of
             # positions, and params is a dictionary with the simulation parameters given by the user.
             # The variable's names can be different (with the exception of Usf).
-            usfFile = __import__(self.scriptParameters['usffile'][:-3]) 
+            usfFile = __import__(self.scriptParameters['usffile'][:-3])
             scriptName = self.scriptParameters['scriptname']
             molName = self.fluidParameters['moleculename']
             epsilon_ff = self.fluidParameters['epsilon_ff[K]']
@@ -310,7 +308,6 @@ class System():
             reducedPoreSizes = self.poreParameters['poresize']
             geom = self.poreParameters['geometry']
             rcut_ff, rcut_sf = 0, 0
-            length = 40.0 # Usefull only for cylindrical and slit geometries. Otherwise, ignore it.
             nUsfPoints = 2000
             if 'rcut_ff[nm]' in self.fluidParameters.keys(): rcut_ff = self.fluidParameters['rcut_ff[nm]']
             elif 'sigma2_ff[nm]' in self.fluidParameters.keys(): rcut_ff = self.fluidParameters['sigma2_ff[nm]']
@@ -330,12 +327,12 @@ class System():
                          f'## Parameters for {molName}: d_ext = {poreSizes[i]} nm, n_s = {n_s} nm^-2, '\
                          f'molarmass = {molarMass} g/mol, epsilon_ff = {epsilon_ff} K, epsilon_sf = {epsilon_sf[i]} K, '
                 # Depending on the potential.
-                if 'rcut_ff[nm]' in self.fluidParameters.keys(): header += f'rcut_ff = {rcut_ff} nm '
-                elif 'sigma2_ff[nm]' in self.fluidParameters.keys(): header += f'sigma2_ff = {rcut_ff} nm '
-                if 'rcut_sf[nm]' in self.poreParameters.keys(): 
+                if 'rcut_ff[nm]' in self.fluidParameters.keys(): header += f'rcut_ff = {rcut_ff} nm, '
+                elif 'sigma2_ff[nm]' in self.fluidParameters.keys(): header += f'sigma2_ff = {rcut_ff} nm, '
+                if 'rcut_sf[nm]' in self.poreParameters.keys():
                     self.poreParameters['rcut_sf[nm]'] = rcut_sf[i]
                     header += f'rcut_sf = {rcut_sf[i]} nm '
-                elif 'sigma2_sf[nm]' in self.poreParameters.keys(): 
+                elif 'sigma2_sf[nm]' in self.poreParameters.keys():
                     self.poreParameters['sigma2_sf[nm]'] = rcut_sf[i]
                     header += f'sigma2_sf = {rcut_sf[i]} nm '
                 header += f'\n'\
@@ -344,6 +341,7 @@ class System():
                 # it's mandatory to add "params", even if they weren't going to be used.
                 params = {**self.fluidParameters, **self.poreParameters, **self.stateVariables}
                 if (geom[0] == 6): # Usf = Usf(x, params), where x is the radius. Cylindrical geometries
+                    length = 40.0
                     xVector = np.linspace(0,poreSizes[i]*0.5-r_min,nUsfPoints) #nm
                     header += f'{length}\t{reducedPoreSizes[i]}\t{reducedPoreSizes[i]}\n'\
                               f'{nUsfPoints} 0\n'\
@@ -353,8 +351,9 @@ class System():
                     header += f'{reducedPoreSizes[i]}\t{reducedPoreSizes[i]}\t{reducedPoreSizes[i]}\n'\
                               f'{nUsfPoints} 0\n'\
                               f'# r(nm)\tU/eps_FF'
-                if (geom[0] == 7): # Usf = Usf(x, params), where x is the distance to the walls from the center 
+                if (geom[0] == 7): # Usf = Usf(x, params), where x is the distance to the walls from the center
                     # of the pore in the z direction. Cartesian geometries
+                    length = 15.0
                     xVector = np.linspace(-poreSizes[i]*0.5+r_min,poreSizes[i]*0.5-r_min,nUsfPoints) #nm
                     header += f'{length}\t{length}\t{reducedPoreSizes[i]}\n'\
                               f'{nUsfPoints} 0\n'\
@@ -395,17 +394,17 @@ class System():
                            f'sigma2 {sigma2}\n'
         fileContent += f'end potential {pot_ff}\n#\n'
         # Depending on the chain length and ensemble.
-        fileContent += f'moves\n'\
-                       f'displacement 1\n'
-        if (ensemble == 'nvt'): fileContent += f'exchange 0\n'
-        if (ensemble == 'gce'): fileContent += f'exchange 1\n'
-        fileContent += f'end moves\n# EOF\n'
+        fileContent += 'moves\n'\
+                       'displacement 1\n'
+        if (ensemble == 'nvt'): fileContent += 'exchange 0\n'
+        if (ensemble == 'gce'): fileContent += 'exchange 1\n'
+        fileContent += 'end moves\n# EOF\n'
         for d_ext in poreSizes:
             molFileName = f'{d_ext}nm/{molName}.mol'
             with open(molFileName,'w') as molFile: molFile.write(fileContent)
 
     def WriteInputFile(self):
-        equilSets = self.programParameters['equilibrationsets'] 
+        equilSets = self.programParameters['equilibrationsets']
         prodSets = self.programParameters['productionsets']
         stepsPerSet = self.programParameters['stepsperset']
         printEvery = self.programParameters['printeverynsets']
@@ -415,10 +414,11 @@ class System():
         reducedPoreSizes = self.poreParameters['poresize']
         temperature = self.stateVariables['externaltemperature[K]']
         molName = self.fluidParameters['moleculename']
+        initFiles = self.scriptParameters['initfiles']
         firstVariable = []
-        if (ensemble == 'nvt'): 
+        if (ensemble == 'nvt'):
             firstVariable = self.stateVariables['numberofmolecules']
-        if (ensemble == 'gce'): 
+        if (ensemble == 'gce'):
             self.ReadChemicalPotential()
             firstVariable = self.stateVariables['chemicalpotential']
         # Writing input file.
@@ -430,7 +430,10 @@ class System():
                               f'record energy\n'\
                               f'model {molName}.mol\n'\
                               f'summary {molName}_{var}.sum\n'
-                if (geom == 'bulk' or geom == 'space' or geom == 'box'): 
+                if initFiles != None: 
+                    fileContent += f'initial {initFiles[i]}\n'
+                    shutil.copyfile(initFiles[i],f'{poreSizes[i]}nm/{initFiles[i]}')
+                if (geom == 'bulk' or geom == 'space' or geom == 'box'):
                         fileContent += f'solid {geom} {reducedPoreSizes[i]}\n'
                 else: fileContent += f'solid {molName}.sol\n'
                 fileContent += 'track 3 3\n'\
@@ -441,8 +444,6 @@ class System():
     def WriteSubmitFile(self):
         ensemble = self.programParameters['ensemble']
         runsbatch = self.scriptParameters['runsbatch']
-        output = self.scriptParameters['stdout']
-        outerr = self.scriptParameters['stderr']
         poreSizes = self.poreParameters['poresize[nm]']
         molName = self.fluidParameters['moleculename']
         firstVariable = []
@@ -460,8 +461,8 @@ class System():
                     emailType = self.scriptParameters['emailtype']
                     fileContent = f'#!/bin/sh\n\n'\
                                   f'#SBATCH -J {jobName}\n'\
-                                  f'#SBATCH -o {output}\n'\
-                                  f'#SBATCH -e {outerr}\n'\
+                                  f'#SBATCH -o {molName}_{var}.out\n'\
+                                  f'#SBATCH -e {molName}_{var}.err\n'\
                                   f'#SBATCH --nodes=1\n'\
                                   f'#SBATCH --ntasks=1\n'\
                                   f'#SBATCH --cpus-per-task=1\n'\
@@ -482,7 +483,7 @@ class System():
                           f'\tdone\n'\
                           f'\tcd ../\n'\
                           f'done\n'
-        else: 
+        else:
             # Create a "parallelized" submit file.
             if 'numberofprocessors' in self.scriptParameters.keys():
                 numProcessors = self.scriptParameters['numberofprocessors']
@@ -494,7 +495,7 @@ class System():
                           f'\tfor var in {firstVariableStr}; do\n'\
                           f'\t\tjob=$(ps aux | more | grep "./../chainbuild" | head -n -1 | wc -l)\n'\
                           f'\t\tif [[ $job -lt $np ]]; then\n'\
-                          f'\t\t\t./../chainbuild < {molName}_${{var}}.inp 1> {output} 2> {outerr} &\n'\
+                          f'\t\t\t./../chainbuild < {molName}_${{var}}.inp &> {molName}_${{var}}.out &\n'\
                           f'\t\tfi\n'\
                           f'\t\tsleep 1\n'\
                           f'\tdone\n'\
@@ -506,7 +507,7 @@ class System():
 if __name__ == '__main__':
     argv = sys.argv
     system = System(argv)
-    if re.search(r'-h.*',' '.join(argv),re.IGNORECASE): system.Help() 
+    if re.search(r'-h.*',' '.join(argv),re.IGNORECASE): system.Help()
     print('Reading input parameters ...\n')
     system.ReadFileOfInputParameters()
     system.CheckErrors()

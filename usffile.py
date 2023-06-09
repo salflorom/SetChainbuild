@@ -90,27 +90,33 @@ from scipy import special as spec
         # elif poreRadius-sigmasf*0.5-deltap <= r[i] < poreRadius-sigmasf*0.5: usfArray[i] = -epsilon
     # return usfArray #K
 
-# Slit geometry. 
+# Square-well with no solid-fluid interactions between the slits.
+# def Usf(zArray, params):
+#     usfArray = np.zeros_like(zArray)
+#     sigmasf = params['sigma_sf[nm]']
+#     poreRadius = params['poresize[nm]']*0.5
+#     for i in range(len(zArray)):
+#         if abs(zArray[i]) >= poreRadius-sigmasf*0.5: usfArray[i] = 1e100
+#     return usfArray
+
+# Slit geometry.
 def Usf(zArray,params):
+    N = 3 # Number of wall layers in each direction
     usfArray = np.zeros_like(zArray)
     eps_fs = params['epsilon_sf[K]']
     sigmasf = params['sigma_sf[nm]']
     W = params['poresize[nm]'] # Pore width (distance between the inner walls)
     n = params['n_s[nm^-2]'] # number of atoms per wall (approximate if not constant)
-    N = 3 # Number of wall layers in each direction
-    d = W/2 # Half pore width (in Angstrom)
+    d = W/2 # Half pore width
     r_0 = sigmasf
-
     U = [0] * len(zArray)
     for nw in np.linspace(0,N-1,N):
-        
-        T1 = [(((r_0 / (d + (nw*3.35) + z))**10)) for z in zArray]
-        T2 = [(((r_0 / (d + (nw*3.35) - z))**10)) for z in zArray]
-        T3 = [(((r_0 / (d + (nw*3.35) + z))**4)) for z in zArray]
-        T4 = [(((r_0 / (d + (nw*3.35) - z))**4)) for z in zArray]
-
+        T1 = [(((r_0 / (d + (nw*0.335) + z))**10)) for z in zArray]
+        T2 = [(((r_0 / (d + (nw*0.335) - z))**10)) for z in zArray]
+        T3 = [(((r_0 / (d + (nw*0.335) + z))**4)) for z in zArray]
+        T4 = [(((r_0 / (d + (nw*0.335) - z))**4)) for z in zArray]
         U_wall = [(4*np.pi*n*eps_fs*(r_0**2))*((1/5)*(t1+t2)-(1/2)*(t3+t4)) for t1,t2,t3,t4 in zip(T1,T2,T3,T4)]
-
-        usfArray = np.array([u+u_w for u,u_w in zip(U,U_wall)])
+        U = [u+u_w for u,u_w in zip(U,U_wall)]
+    usfArray = np.array(U)
     return usfArray
 
