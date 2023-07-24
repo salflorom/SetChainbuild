@@ -1,5 +1,6 @@
 # Simulation parameters
 EquilibrationSets 0
+
 ProductionSets 1e5
 StepsPerSet 1e5
 PrintEveryNSets 1e2
