@@ -1,40 +1,42 @@
 # Simulation parameters
 EquilibrationSets 0
-ProductionSets 1e4
-StepsPerSet 1e3
-PrintEveryNSets 1e1
+
+ProductionSets 1e5
+StepsPerSet 1e5
+PrintEveryNSets 1e2
 Ensemble gce #nvt, gce
 
 # State Variables. Volume is defined in Solid-Fluid Parameters or in U_sfFile.
-ExternalTemperature 119.6 #K
+ExternalTemperature 87 #K
 ExternalPressure 0 #Pa
 
 # Fluid-Fluid Parameters
 MoleculeName argon
-sigma_ff 0.34 #nm
-rcut_ff 1.7 #nm
-epsilon_ff 119.6 #K
+sigma_ff 0.3405 #nm
+#sigma2_ff 0.76833 #nm. For fluid-fluid squarewell potential.
+rcut_ff 1.7025 #nm
+epsilon_ff 119.8 #K
 MolarMass 39.948 #g/mol
 U_ff lj #lj (Lennard Jones), SquareWell. Intermolecular potential.
 
 # Solid-Fluid Parameters
 Geometry 7 Slit
-PoreSize 2 5 #nm. d_ext or box-length (It's necessary, even for bulk phases)
-n_s 15.3 #nm^-2
-epsilon_sf 171.24 #K
-sigma_sf 0.3 #nm
-rcut_sf 3.4 #nm
+PoreSize 4 #nm. d_ext or box-length (It's necessary, even for bulk phases)
+n_s 6.85 #nm^-2
+epsilon_sf 239.6 #K
+sigma_sf 0.45 #nm
+rcut_sf 3.405 #nm
 
 # Files to read (initial coordinates, solid-fluid potential or chemical potential)
-InitFiles argonAtpSat_5nm.coor #File that contains the initial coordinates (unique format).
+#InitFiles argonAtpSat_5nm.coor #File that contains the initial coordinates (unique format).
 UsfFile usffile.py #K. File that contains the solid-fluid potential function.
 MuFile mufile.py #K. File that contains the chemical potential function.
 
 # SBATCH parameters
 RunSbatch yes
 	Email saf5@njit.edu
-	EmailType END
-	JobName argonSlit
+	EmailType FAIL,END
+	JobName argonChen
 
 #EOF
 
