@@ -43,7 +43,7 @@ class System():
               '\t\t\tProductionSets [value]\n'
               '\t\t\tStepsPerSet [value]\n'
               '\t\t\tPrintEveryNSets [value]\n'
-              '\t\t\tEnsemble [nvt|gce]\n'
+              '\t\t\tEnsemble [nvt|gce|mce]\n'
               '\t\t# State Variables:\n'
               '\t\t\tExternalTemperature [value] (in K)\n'
               '\t\t\tExternalPressure [list of values separated by spaces] (in Pa)\n'
@@ -123,15 +123,17 @@ class System():
                 elif command == 'productionsets': self.programParameters[command] = int(float(value))
                 elif command == 'stepsperset': self.programParameters[command] = int(float(value))
                 elif command == 'printeverynsets': self.programParameters[command] = int(float(value))
-                elif command == 'ensemble': self.programParameters[command] = value #gce, nvt
+                elif command == 'ensemble': self.programParameters[command] = value #gce, nvt, mce
                 # State variables
                 elif command == 'externalpressure':
                     self.stateVariables[command+'[Pa]'] = np.array(list(map(float,value.split()))) #For several pressures.
                 elif command == 'numberofmolecules':
                     self.stateVariables[command] = np.array(list(map(int,value.split()))) #For several numbers of molecules.
                 elif command == 'externaltemperature': self.stateVariables[command+'[K]'] = float(value)
-                elif command == 'chemicalpotential': 
+                elif command == 'chemicalpotential':
                     self.stateVariables[command+'[K]'] = np.array(list(map(float,params.group(2).split()))) # For several values
+                elif command == 'gaugecellsize':
+                    self.stateVariables[command+'[nm]'] = self.stateVariables[command+'[nm]'] = float(value)
                 # Fluid-Fluid parameters
                 elif command == 'moleculename': self.fluidParameters[command] = value #Arbitrary
                 elif command == 'sigma_ff': self.fluidParameters[command+'[nm]'] = float(value) #nm
@@ -152,7 +154,7 @@ class System():
                     self.poreParameters[command] = value.split()
                     self.poreParameters[command][0] = int(float(self.poreParameters[command][0]))
                 # Files to read
-                elif command == 'initfiles': 
+                elif command == 'initfiles':
                     self.scriptParameters[command] = np.array(list(map(str,params.group(2).split()))) #Input file for each pore size.
                 elif command == 'usffile': self.scriptParameters[command] = value #K
                 elif command == 'mufile': self.scriptParameters[command] = value #K
@@ -165,6 +167,7 @@ class System():
         # Reducing parameters and variables.
         self.stateVariables['externaltemperature'] = self.stateVariables['externaltemperature[K]']/self.fluidParameters['epsilon_ff[K]']
         self.poreParameters['poresize'] = self.poreParameters['poresize[nm]']/self.fluidParameters['sigma_ff[nm]']
+        self.stateVariables['gaugecellsize'] = self.stateVariables['gaugecellsize[nm]']/self.fluidParameters['sigma_ff[nm]']
         if 'rcut_ff[nm]' in self.fluidParameters.keys():
             self.fluidParameters['rcut_ff'] = self.fluidParameters['rcut_ff[nm]']/self.fluidParameters['sigma_ff[nm]']
         if 'rcut_sf[nm]' in self.poreParameters.keys():
@@ -189,8 +192,8 @@ class System():
         if ('ensemble' not in self.programParameters.keys()):
             raise KeyError('Ensemble was not defined: nvt or gce.')
         ensemble = self.programParameters['ensemble']
-        if not re.search('(gce)|(nvt)', ensemble):
-            raise NameError(f'Wrong ensemble. Only two are accepted: gce (Grand Canonical ensemble) and nvt (Canonical ensemble). '
+        if not re.search('(gce)|(nvt)|(mce)', ensemble):
+            raise NameError(f'Wrong ensemble. Only three are accepted: gce (Grand Canonical), nvt (Canonical), mce (Mesocanonical). '
                             f'Ensemble given: {ensemble}')
         # Fluid-Fluid and Solid-Fluid parameters.
         # rcut and sigma2.
@@ -398,6 +401,7 @@ class System():
                        'displacement 1\n'
         if (ensemble == 'nvt'): fileContent += 'exchange 0\n'
         if (ensemble == 'gce'): fileContent += 'exchange 1\n'
+        if (ensemble == 'mce'): fileContent += 'exchange 1\n'
         fileContent += 'end moves\n# EOF\n'
         for d_ext in poreSizes:
             molFileName = f'{d_ext}nm/{molName}.mol'
@@ -415,22 +419,27 @@ class System():
         temperature = self.stateVariables['externaltemperature[K]']
         molName = self.fluidParameters['moleculename']
         initFiles = self.scriptParameters['initfiles']
-        firstVariable = []
+        firstVariable, secondVariable = [], ''
+        if (ensemble == 'mce'):
+            firstVariable = self.stateVariables['numberofmolecules']
+            secondVariable = self.stateVariables['gaugecellsize']
         if (ensemble == 'nvt'):
             firstVariable = self.stateVariables['numberofmolecules']
+            secondVariable = ''
         if (ensemble == 'gce'):
             self.ReadChemicalPotential()
             firstVariable = self.stateVariables['chemicalpotential']
+            secondVariable = ''
         # Writing input file.
         for i in range(len(poreSizes)):
             for var in firstVariable:
                 fileContent = f'name {molName}_{var}\n'\
                               f'job {equilSets} {prodSets} {stepsPerSet} {printEvery}\n'\
-                              f'ens {ensemble} {var} {temperature}\n'\
+                              f'ens {ensemble} {var} {temperature} {secondVariable}\n'\
                               f'record energy\n'\
                               f'model {molName}.mol\n'\
                               f'summary {molName}_{var}.sum\n'
-                if initFiles != None: 
+                if initFiles != None:
                     fileContent += f'initial {initFiles[i]}\n'
                     shutil.copyfile(initFiles[i],f'{poreSizes[i]}nm/{initFiles[i]}')
                 if (geom == 'bulk' or geom == 'space' or geom == 'box'):
@@ -448,6 +457,7 @@ class System():
         molName = self.fluidParameters['moleculename']
         firstVariable = []
         if (ensemble == 'nvt'): firstVariable = self.stateVariables['numberofmolecules']
+        if (ensemble == 'mce'): firstVariable = self.stateVariables['numberofmolecules']
         if (ensemble == 'gce'): firstVariable = self.stateVariables['chemicalpotential']
         poreSizesStr, firstVariableStr = '', ''
         for d_ext in poreSizes: poreSizesStr += str(d_ext)+' '
